@@ -29,6 +29,19 @@ export async function getRepositories() {
   return repositories
 }
 
+export async function getPullRequestsByProjectId(projectId) {
+  await delay()
+  const project = projects.find((p) => p.id === projectId) ?? null
+  return project ? project.pullRequests : null
+}
+
+export async function getPullRequestById(projectId, prId) {
+  await delay()
+  const project = projects.find((p) => p.id === projectId) ?? null
+  if (!project) return null
+  return project.pullRequests.find((pr) => pr.id === prId) ?? null
+}
+
 export async function connectRepository(configuration) {
   await delay(1200)
   return {
