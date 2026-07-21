@@ -332,7 +332,17 @@ By design, none of the following exist in this repository yet:
 Every "connected" repository, project, pull request, memory entry, and
 generated test currently on screen is mock data.
 
-## 27. Future Roadmap
+## 27. Backend Prototypes (`backend/`)
+
+The `backend/` folder holds a standalone Node.js prototype for choosing and
+testing a Bedrock embedding model, used to design the "Similar Examples"
+panel on the PR detail page (`src/components/prs/SimilarExamplesPanel.jsx`,
+currently backed by mock data in `src/data/similarExamples.js`). It is not
+wired into the frontend and has its own `npm install`/setup — see
+[`backend/README.md`](backend/README.md) for the model choice, AWS
+prerequisites, and how to run it.
+
+## 28. Future Roadmap
 
 - Wire `src/services/api.js` up to real REST endpoints backed by API
   Gateway + Lambda.
@@ -343,7 +353,7 @@ generated test currently on screen is mock data.
 - Add authentication, authorization, and secrets management.
 - Replace mock sync/status data with real webhook-driven updates.
 
-## 28. Security Notes
+## 29. Security Notes
 
 - This frontend prototype does not authenticate users and does not store or
   transmit real credentials — do not add real tokens, secrets, or `.env`
