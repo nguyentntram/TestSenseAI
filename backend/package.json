@@ -1,0 +1,23 @@
+{
+  "name": "testsense-ai-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TestSense AI backend: GitHub OAuth, project CRUD, and CockroachDB access, designed for AWS Lambda + API Gateway.",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/localServer.js",
+    "start": "node --env-file=.env src/localServer.js",
+    "lint": "eslint .",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "build": "node scripts/checkSyntax.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.906.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0"
+  }
+}
