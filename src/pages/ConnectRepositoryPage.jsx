@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { KeyRound, CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2, Loader2, AlertTriangle } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Button from '../components/common/Button.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
+import EmptyState from '../components/common/EmptyState.jsx'
 import StepIndicator from '../components/common/StepIndicator.jsx'
 import RepositoryCard from '../components/repositories/RepositoryCard.jsx'
-import { getRepositories, connectRepository } from '../services/api.js'
+import { getRepositories, createProject, beginGitHubLogin } from '../services/api.js'
+import { ApiError } from '../services/ApiError.js'
+import { useCurrentUser } from '../hooks/useCurrentUser.js'
 
 const STEPS = [
   'Authorize GitHub',
@@ -16,17 +19,14 @@ const STEPS = [
   'Success',
 ]
 
-// This flow only demonstrates the UI. No real GitHub OAuth or API calls happen here.
-const DEMO_WORKSPACE_PROJECT_ID = 'payment-service'
-
 export default function ConnectRepositoryPage() {
   const navigate = useNavigate()
+  const { user, status: authStatus } = useCurrentUser()
 
   const [step, setStep] = useState(1)
-  const [authorized, setAuthorized] = useState(false)
 
   const [repositories, setRepositories] = useState([])
-  const [reposLoading, setReposLoading] = useState(true)
+  const [reposStatus, setReposStatus] = useState('idle')
   const [selectedRepo, setSelectedRepo] = useState(null)
 
   const [projectName, setProjectName] = useState('')
@@ -34,19 +34,29 @@ export default function ConnectRepositoryPage() {
   const [touched, setTouched] = useState({ projectName: false, defaultBranch: false })
 
   const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState('')
+  const [createdProject, setCreatedProject] = useState(null)
 
   useEffect(() => {
+    if (step !== 2 || reposStatus !== 'idle') return
+
     let cancelled = false
-    getRepositories().then((data) => {
-      if (!cancelled) {
+
+    getRepositories()
+      .then((data) => {
+        if (cancelled) return
         setRepositories(data)
-        setReposLoading(false)
-      }
-    })
+        setReposStatus('loaded')
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setReposStatus(err instanceof ApiError && err.status === 401 ? 'unauthenticated' : 'error')
+      })
+
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [step, reposStatus])
 
   function handleSelectRepository(repository) {
     setSelectedRepo(repository)
@@ -60,12 +70,13 @@ export default function ConnectRepositoryPage() {
     touched.defaultBranch && !defaultBranch.trim() ? 'Default branch is required.' : ''
 
   const canGoNext =
-    (step === 1 && authorized) ||
+    (step === 1 && authStatus === 'signed-in') ||
     (step === 2 && selectedRepo !== null) ||
     (step === 3 && projectName.trim() !== '' && defaultBranch.trim() !== '') ||
     step === 4
 
   function goBack() {
+    setConnectError('')
     setStep((current) => Math.max(1, current - 1))
   }
 
@@ -77,13 +88,25 @@ export default function ConnectRepositoryPage() {
 
     if (step === 4) {
       setConnecting(true)
-      await connectRepository({
-        repository: selectedRepo,
-        projectName,
-        defaultBranch,
-      })
-      setConnecting(false)
-      setStep(5)
+      setConnectError('')
+      try {
+        const project = await createProject({
+          repositoryOwner: selectedRepo.owner,
+          repositoryName: selectedRepo.name,
+          name: projectName,
+          defaultBranch,
+        })
+        setCreatedProject(project)
+        setStep(5)
+      } catch (err) {
+        setConnectError(
+          err instanceof ApiError
+            ? err.message
+            : 'Could not connect this repository. Please try again.',
+        )
+      } finally {
+        setConnecting(false)
+      }
       return
     }
 
@@ -119,28 +142,31 @@ export default function ConnectRepositoryPage() {
           <div>
             <h2 className="text-base font-semibold text-slate-900">Authorize GitHub</h2>
             <p className="mt-1 text-sm text-slate-500">
-              This is a demo authorization step. No real GitHub account is contacted.
+              Sign in with your real GitHub account to continue.
             </p>
-            <button
-              type="button"
-              onClick={() => setAuthorized(true)}
-              aria-pressed={authorized}
-              className={`mt-5 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:w-auto ${
-                authorized
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                  : 'border-slate-300 bg-slate-900 text-white hover:bg-slate-800'
-              }`}
-            >
-              {authorized ? (
-                <>
-                  <CheckCircle2 size={16} aria-hidden="true" /> Authorized as demo-user
-                </>
-              ) : (
-                <>
-                  <KeyRound size={16} aria-hidden="true" /> Authorize with GitHub (mock)
-                </>
-              )}
-            </button>
+
+            {authStatus === 'loading' && (
+              <div className="mt-5">
+                <LoadingState label="Checking sign-in status…" />
+              </div>
+            )}
+
+            {authStatus === 'signed-out' && (
+              <button
+                type="button"
+                onClick={() => beginGitHubLogin('/connect-repository')}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:w-auto"
+              >
+                Sign in with GitHub
+              </button>
+            )}
+
+            {authStatus === 'signed-in' && (
+              <div className="mt-5 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                <CheckCircle2 size={16} aria-hidden="true" />
+                Authorized as {user.githubUsername}
+              </div>
+            )}
           </div>
         )}
 
@@ -151,9 +177,41 @@ export default function ConnectRepositoryPage() {
               Choose one repository to connect. You can change this later.
             </p>
             <div className="mt-5">
-              {reposLoading ? (
-                <LoadingState label="Loading repositories…" />
-              ) : (
+              {reposStatus === 'idle' && <LoadingState label="Loading repositories…" />}
+
+              {reposStatus === 'unauthenticated' && (
+                <EmptyState
+                  title="Sign-in expired"
+                  description="Your session expired before we could load your repositories. Please sign in again."
+                  action={
+                    <Button onClick={() => beginGitHubLogin('/connect-repository')}>
+                      Sign in with GitHub
+                    </Button>
+                  }
+                />
+              )}
+
+              {reposStatus === 'error' && (
+                <EmptyState
+                  icon={AlertTriangle}
+                  title="Couldn't load repositories"
+                  description="Something went wrong while fetching your GitHub repositories."
+                  action={
+                    <Button variant="secondary" onClick={() => setReposStatus('idle')}>
+                      Retry
+                    </Button>
+                  }
+                />
+              )}
+
+              {reposStatus === 'loaded' && repositories.length === 0 && (
+                <EmptyState
+                  title="No repositories found"
+                  description="We couldn't find any repositories for your GitHub account."
+                />
+              )}
+
+              {reposStatus === 'loaded' && repositories.length > 0 && (
                 <div className="space-y-3">
                   {repositories.map((repository) => (
                     <RepositoryCard
@@ -233,6 +291,13 @@ export default function ConnectRepositoryPage() {
               <ReviewRow label="Default branch" value={defaultBranch} />
               <ReviewRow label="Language" value={selectedRepo?.language} />
             </dl>
+
+            {connectError && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{connectError}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -245,11 +310,11 @@ export default function ConnectRepositoryPage() {
               Repository connected
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              {projectName} is connected. TestSense AI will begin building repository memory
-              from {selectedRepo?.fullName}.
+              {createdProject?.name} is connected. TestSense AI will begin building repository
+              memory from {createdProject?.repositoryFullName}.
             </p>
             <div className="mt-6">
-              <Button onClick={() => navigate(`/projects/${DEMO_WORKSPACE_PROJECT_ID}`)}>
+              <Button onClick={() => navigate(`/projects/${createdProject.id}`)}>
                 Go to Project Workspace
               </Button>
             </div>

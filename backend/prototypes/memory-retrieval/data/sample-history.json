@@ -1,0 +1,38 @@
+[
+  {
+    "id": "PR-402",
+    "type": "bug-fix",
+    "title": "Refund amounts could go negative when discounts were applied twice",
+    "text": "Fixed a bug where issuing a refund after two stacked discounts had already been applied could produce a negative refund amount, which Stripe silently rejected. Added a guard that clamps the refund amount to zero and throws if the requested amount is not strictly positive or exceeds the original charge."
+  },
+  {
+    "id": "test/helpers/fakeStripeClient.ts",
+    "type": "test-pattern",
+    "title": "Payment provider calls are mocked with a shared fakeStripeClient helper",
+    "text": "All tests that touch the Stripe SDK use a shared fakeStripeClient test helper instead of mocking individual methods inline. This keeps refund, charge, and webhook tests consistent and makes it easy to assert on idempotency keys."
+  },
+  {
+    "id": "CONTRIBUTING.md",
+    "type": "convention",
+    "title": "All monetary values are stored as integer cents, never floats",
+    "text": "Every monetary field in this codebase is an integer number of cents, never a floating point dollar amount. This avoids floating point rounding drift when summing invoice line items or computing partial refunds."
+  },
+  {
+    "id": "PR-190",
+    "type": "bug-fix",
+    "title": "Concurrent transfers between warehouses could double-count stock",
+    "text": "Two concurrent warehouse transfer requests for the same SKU could both read the same starting quantity before either write completed, resulting in stock being double-counted as available. Wrapped the read-modify-write in a SELECT FOR UPDATE transaction to serialize concurrent transfers."
+  },
+  {
+    "id": "ARCHITECTURE.md",
+    "type": "convention",
+    "title": "All DB writes to stock_levels go through the StockLedger service",
+    "text": "No code outside the StockLedger service is allowed to write directly to the stock_levels table. This keeps locking and audit-logging behavior in one place instead of scattered across importers, transfer handlers, and alert threshold checks."
+  },
+  {
+    "id": "internal/testutil",
+    "type": "test-pattern",
+    "title": "Token expiry tests use an injectable clock, never real time.sleep",
+    "text": "Tests that exercise token expiry or key rotation windows use an injectable fake clock instead of sleeping in real time. This keeps the signing-key rotation and grace-period tests fast and deterministic."
+  }
+]

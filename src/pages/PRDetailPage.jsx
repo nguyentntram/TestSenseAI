@@ -21,6 +21,7 @@ import Badge from '../components/common/Badge.jsx'
 import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
+import SimilarExamplesPanel from '../components/prs/SimilarExamplesPanel.jsx'
 import { getProjectById, getPullRequestById } from '../services/api.js'
 import { formatRelativeTime } from '../utils/format.js'
 
@@ -32,7 +33,7 @@ const FILE_STATUS_BADGE = {
   deleted: { tone: 'error', label: 'deleted' },
 }
 
-const TABS = ['Changed Files', 'Diff', 'Generated Tests']
+const TABS = ['Changed Files', 'Diff', 'Similar Examples', 'Generated Tests']
 
 export default function PRDetailPage() {
   const { projectId, prId } = useParams()
@@ -196,6 +197,9 @@ export default function PRDetailPage() {
       <div className="mt-6">
         {activeTab === 'Changed Files' && <ChangedFilesTab pr={pr} />}
         {activeTab === 'Diff' && <DiffTab pr={pr} />}
+        {activeTab === 'Similar Examples' && (
+          <SimilarExamplesPanel projectId={projectId} prId={pr.id} />
+        )}
         {activeTab === 'Generated Tests' && (
           <GeneratedTestsTab tests={linkedTests} projectId={pr.id} />
         )}
