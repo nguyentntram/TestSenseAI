@@ -6,6 +6,9 @@ import ConnectRepositoryPage from '../pages/ConnectRepositoryPage.jsx'
 import ProjectWorkspacePage from '../pages/ProjectWorkspacePage.jsx'
 import PRListPage from '../pages/PRListPage.jsx'
 import PRDetailPage from '../pages/PRDetailPage.jsx'
+import GeneratedTestsPage from '../pages/GeneratedTestsPage.jsx'
+import TestDetailPage from '../pages/TestDetailPage.jsx'
+import AnalyticsPage from '../pages/AnalyticsPage.jsx'
 import NotFoundPage from '../pages/NotFoundPage.jsx'
 
 // Remounts ProjectWorkspacePage whenever the projectId param changes, so its
@@ -23,8 +26,18 @@ export default function AppRoutes() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/connect-repository" element={<ConnectRepositoryPage />} />
         <Route path="/projects/:projectId" element={<ProjectWorkspaceRoute />} />
+
+        {/* Han — PR Ingestion & Analysis */}
         <Route path="/projects/:projectId/pull-requests" element={<PRListPage />} />
         <Route path="/projects/:projectId/pull-requests/:prId" element={<PRDetailPage />} />
+
+        {/* Anh — Test Generation & Feedback */}
+        <Route path="/projects/:projectId/generated-tests" element={<GeneratedTestsPage />} />
+        <Route path="/projects/:projectId/generated-tests/:testId" element={<TestDetailPage />} />
+
+        {/* Trung — Memory & Retrieval */}
+        <Route path="/projects/:projectId/analytics" element={<AnalyticsPage />} />
+
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
