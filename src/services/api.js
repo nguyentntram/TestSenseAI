@@ -1,12 +1,13 @@
 // Placeholder API service layer.
 //
 // Every function returns mock data behind a small artificial delay so
-// components can be written against async calls. When the real backend
-// (API Gateway + Lambda) exists, swap the function bodies for real fetch
-// calls without changing any call sites.
+// components can already be written against async calls. When the real
+// backend (API Gateway + Lambda) exists, swap the bodies of these functions
+// for real `fetch`/HTTP calls without changing any call sites.
 
 import { projects } from '../data/projects.js'
 import { repositories } from '../data/repositories.js'
+import { getSimilarExamplesForPr } from '../data/similarExamples.js'
 
 const MOCK_DELAY_MS = 500
 
@@ -23,7 +24,7 @@ export async function getProjects() {
 
 export async function getProjectById(projectId) {
   await delay()
-  return projects.find((p) => p.id === projectId) ?? null
+  return projects.find((project) => project.id === projectId) ?? null
 }
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ export async function getPullRequestById(projectId, prId) {
   return project.pullRequests.find((pr) => pr.id === prId) ?? null
 }
 
-// ─── Generated Tests ──────────────────────────────────────────────────────────
+// ─── Generated Tests (Anh) ───────────────────────────────────────────────────
 
 export async function getGeneratedTestsByProjectId(projectId) {
   await delay()
@@ -80,7 +81,15 @@ export async function saveFeedback(projectId, testId, { action, editedCode }) {
   return { testId, action, editedCode, savedAt: new Date().toISOString() }
 }
 
-// ─── Analytics & Memory (Trung) ──────────────────────────────────────────────
+// ─── Memory & Retrieval (Trung) ───────────────────────────────────────────────
+
+// Reads local mock data today. Once the real similarity-search endpoint
+// exists (Week 2), swap this body for a fetch call — the return shape stays
+// the same so SimilarExamplesPanel doesn't need to change.
+export async function getSimilarExamples(_projectId, prId) {
+  await delay()
+  return getSimilarExamplesForPr(prId)
+}
 
 export async function getAnalyticsByProjectId(projectId) {
   await delay()
