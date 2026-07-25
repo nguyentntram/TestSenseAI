@@ -182,15 +182,146 @@ diff --git a/src/types/payment.ts b/src/types/payment.ts
       },
     ],
     memoryEntries: [
-      { id: 'mem-1', type: 'bug-fix', summary: 'Refund amounts could go negative when discounts were applied twice.', source: 'PR-402' },
-      { id: 'mem-2', type: 'convention', summary: 'All monetary values are stored as integer cents, never floats.', source: 'CONTRIBUTING.md' },
-      { id: 'mem-3', type: 'test-pattern', summary: 'Payment provider calls are mocked with a shared `fakeStripeClient` helper.', source: 'test/helpers' },
+      { id: 'mem-1', type: 'bug-fix', summary: 'Refund amounts could go negative when discounts were applied twice.', source: 'PR-402', indexedAt: '2026-07-10T08:00:00Z' },
+      { id: 'mem-2', type: 'convention', summary: 'All monetary values are stored as integer cents, never floats.', source: 'CONTRIBUTING.md', indexedAt: '2026-07-10T08:00:00Z' },
+      { id: 'mem-3', type: 'test-pattern', summary: 'Payment provider calls are mocked with a shared `fakeStripeClient` helper.', source: 'test/helpers', indexedAt: '2026-07-10T08:00:00Z' },
     ],
     generatedTests: [
-      { id: 'gt-1', title: 'refundService.test.ts — partial refund does not exceed original charge', linkedPr: 'PR-482', status: 'ready' },
-      { id: 'gt-2', title: 'invoiceTotals.test.ts — rounding stays consistent across currencies', linkedPr: 'PR-479', status: 'ready' },
-      { id: 'gt-3', title: 'webhookRetry.test.ts — retries stop after max attempts', linkedPr: 'PR-471', status: 'draft' },
+      {
+        id: 'gt-1',
+        title: 'refundService.test.ts — partial refund does not exceed original charge',
+        linkedPr: 'PR-482',
+        linkedPrId: 'PR-482',
+        status: 'ready',
+        generatedAt: '2026-07-17T09:45:00Z',
+        reasoning:
+          'The diff introduces a new branch where `amount < charge.amount` marks the refund as partial. The existing test only checks that a full refund succeeds. This test covers the new partial path and verifies the boundary condition — requesting exactly the original amount should not be partial, and requesting more should throw.',
+        testCode: `import { RefundService } from '../refundService'
+import { fakeStripeClient } from '../../test/helpers'
+
+describe('RefundService — partial refunds', () => {
+  let service: RefundService
+
+  beforeEach(() => {
+    service = new RefundService(fakeStripeClient({ amount: 10000 }))
+  })
+
+  it('marks refund as partial when amount < original charge', async () => {
+    const refund = await service.processRefund('ch_123', 5000)
+    expect(refund.partial).toBe(true)
+    expect(fakeStripeClient.lastCall.metadata.partial).toBe('true')
+  })
+
+  it('does not mark as partial when amount equals original charge', async () => {
+    const refund = await service.processRefund('ch_123', 10000)
+    expect(refund.partial).toBe(false)
+  })
+
+  it('throws when refund amount exceeds original charge', async () => {
+    await expect(service.processRefund('ch_123', 10001)).rejects.toThrow(
+      'Refund amount exceeds original charge',
+    )
+  })
+
+  it('throws when refund amount is zero or negative', async () => {
+    await expect(service.processRefund('ch_123', 0)).rejects.toThrow('must be positive')
+    await expect(service.processRefund('ch_123', -1)).rejects.toThrow('must be positive')
+  })
+})`,
+      },
+      {
+        id: 'gt-2',
+        title: 'invoiceTotals.test.ts — rounding stays consistent across currencies',
+        linkedPr: 'PR-479',
+        linkedPrId: 'PR-479',
+        status: 'ready',
+        generatedAt: '2026-07-16T19:10:00Z',
+        reasoning:
+          'The diff switches from float accumulation to integer-cent accumulation. The key risk is rounding divergence across currencies with non-cent subunits (JPY, KWD) or very large line counts. This test checks that the total is deterministic for known inputs and matches the expected cent value.',
+        testCode: `import { calculateTotal } from '../totalsCalculator'
+
+describe('calculateTotal — integer-cent arithmetic', () => {
+  it('returns correct total for a simple two-line invoice', () => {
+    const lines = [
+      { unitPriceCents: 999, quantity: 2 },
+      { unitPriceCents: 1500, quantity: 1 },
+    ]
+    expect(calculateTotal(lines)).toBe(3498)
+  })
+
+  it('is stable across 1000 identical lines (no float drift)', () => {
+    const lines = Array.from({ length: 1000 }, () => ({ unitPriceCents: 1, quantity: 1 }))
+    expect(calculateTotal(lines)).toBe(1000)
+  })
+
+  it('returns 0 for an empty invoice', () => {
+    expect(calculateTotal([])).toBe(0)
+  })
+})`,
+      },
+      {
+        id: 'gt-3',
+        title: 'webhookRetry.test.ts — retries stop after max attempts',
+        linkedPr: 'PR-471',
+        linkedPrId: 'PR-471',
+        status: 'draft',
+        generatedAt: '2026-07-14T12:00:00Z',
+        reasoning:
+          'The new `scheduleRetry` function introduces a `MAX_ATTEMPTS` cap and exponential back-off delay. The critical behaviour to test is: (1) the function enqueues at the right delay for each attempt, and (2) it marks the delivery failed and does not enqueue again once MAX_ATTEMPTS is reached.',
+        testCode: `import { scheduleRetry } from '../retryScheduler'
+import { mockEnqueueAfter, mockMarkDeliveryFailed } from '../../test/helpers'
+
+describe('scheduleRetry', () => {
+  beforeEach(() => {
+    mockEnqueueAfter.mockClear()
+    mockMarkDeliveryFailed.mockClear()
+  })
+
+  it('enqueues with exponential back-off delay', async () => {
+    await scheduleRetry('del_1', 0)
+    expect(mockEnqueueAfter).toHaveBeenCalledWith('del_1', 1000)
+
+    await scheduleRetry('del_1', 2)
+    expect(mockEnqueueAfter).toHaveBeenCalledWith('del_1', 4000)
+  })
+
+  it('marks delivery failed and does not enqueue on max attempt', async () => {
+    await scheduleRetry('del_1', 5)
+    expect(mockMarkDeliveryFailed).toHaveBeenCalledWith('del_1')
+    expect(mockEnqueueAfter).not.toHaveBeenCalled()
+  })
+})`,
+      },
     ],
+    analytics: {
+      memoryCount: 128,
+      retrievalHits: 847,
+      avgSimilarity: 0.74,
+      acceptanceRate: 0.81,
+      similarExamples: [
+        {
+          id: 'se-1',
+          sourceRef: 'PR-402 · refundService.test.ts',
+          testTitle: 'processRefund — discount applied twice does not go negative',
+          summary: 'Tests the guard that prevents double-discount application from producing a negative refund amount.',
+          similarity: 0.91,
+        },
+        {
+          id: 'se-2',
+          sourceRef: 'PR-388 · chargeService.test.ts',
+          testTitle: 'createCharge — idempotency key prevents duplicate charges',
+          summary: 'Verifies that sending the same request twice with the same idempotency key returns the first result.',
+          similarity: 0.83,
+        },
+        {
+          id: 'se-3',
+          sourceRef: 'PR-360 · stripeClient.test.ts',
+          testTitle: 'refunds.create — passes correct metadata fields',
+          summary: 'Checks that all required metadata fields are forwarded to the Stripe SDK.',
+          similarity: 0.72,
+        },
+      ],
+    },
     recentActivity: [
       { id: 'act-1', message: 'Generated 3 tests for PR-482', timestamp: '2026-07-17T09:45:00Z' },
       { id: 'act-2', message: 'Indexed 12 new commits into repository memory', timestamp: '2026-07-16T20:00:00Z' },
@@ -335,13 +466,98 @@ diff --git a/src/types/payment.ts b/src/types/payment.ts
       },
     ],
     memoryEntries: [
-      { id: 'mem-1', type: 'bug-fix', summary: 'Concurrent transfers between warehouses could double-count stock.', source: 'PR-190' },
-      { id: 'mem-2', type: 'convention', summary: 'All DB writes to `stock_levels` go through the `StockLedger` service.', source: 'ARCHITECTURE.md' },
+      { id: 'mem-1', type: 'bug-fix', summary: 'Concurrent transfers between warehouses could double-count stock.', source: 'PR-190', indexedAt: '2026-07-08T09:00:00Z' },
+      { id: 'mem-2', type: 'convention', summary: 'All DB writes to `stock_levels` go through the `StockLedger` service.', source: 'ARCHITECTURE.md', indexedAt: '2026-07-08T09:00:00Z' },
     ],
     generatedTests: [
-      { id: 'gt-1', title: 'test_low_stock_alerts.py — alert fires at threshold boundary', linkedPr: 'PR-210', status: 'ready' },
-      { id: 'gt-2', title: 'test_transfer_reconciliation.py — concurrent transfers stay consistent', linkedPr: 'PR-207', status: 'draft' },
+      {
+        id: 'gt-1',
+        title: 'test_low_stock_alerts.py — alert fires at threshold boundary',
+        linkedPr: 'PR-210',
+        linkedPrId: 'PR-210',
+        status: 'ready',
+        generatedAt: '2026-07-17T14:20:00Z',
+        reasoning:
+          'The new `StockThreshold.is_breached` method uses `<=` (at-or-below), not `<`. This is a common off-by-one. The test should verify that an alert fires exactly at the threshold, not just below it.',
+        testCode: `import pytest
+from inventory.models.threshold import StockThreshold
+
+class TestStockThreshold:
+    def setup_method(self):
+        self.threshold = StockThreshold(sku='SKU-001', warehouse_id='WH-A', minimum_quantity=10)
+
+    def test_is_breached_when_stock_equals_threshold(self):
+        assert self.threshold.is_breached(10) is True
+
+    def test_is_breached_when_stock_below_threshold(self):
+        assert self.threshold.is_breached(5) is True
+
+    def test_not_breached_when_stock_above_threshold(self):
+        assert self.threshold.is_breached(11) is False
+
+    def test_not_breached_at_zero_minimum(self):
+        t = StockThreshold(sku='SKU-002', warehouse_id='WH-A', minimum_quantity=0)
+        assert t.is_breached(1) is False`,
+      },
+      {
+        id: 'gt-2',
+        title: 'test_transfer_reconciliation.py — concurrent transfers stay consistent',
+        linkedPr: 'PR-207',
+        linkedPrId: 'PR-207',
+        status: 'draft',
+        generatedAt: '2026-07-15T09:00:00Z',
+        reasoning:
+          'The diff introduces `SELECT FOR UPDATE` to prevent race conditions. The test needs to verify that two concurrent transfers from the same source warehouse do not both succeed when only enough stock exists for one.',
+        testCode: `import threading
+import pytest
+from inventory.services.transfer_service import TransferService
+from inventory.exceptions import InsufficientStockError
+
+def test_concurrent_transfers_do_not_double_count(db_with_stock):
+    """Only one of two competing transfers should succeed when stock is tight."""
+    service = TransferService()
+    results = []
+    errors = []
+
+    def run_transfer():
+        try:
+            service.transfer('WH-A', 'WH-B', 'SKU-001', qty=5)
+            results.append('success')
+        except InsufficientStockError:
+            errors.append('insufficient')
+
+    # Start 2 threads simultaneously, each trying to move 5 units (only 5 available)
+    t1 = threading.Thread(target=run_transfer)
+    t2 = threading.Thread(target=run_transfer)
+    t1.start(); t2.start()
+    t1.join(); t2.join()
+
+    assert len(results) == 1, 'Exactly one transfer should succeed'
+    assert len(errors) == 1, 'Exactly one transfer should fail'`,
+      },
     ],
+    analytics: {
+      memoryCount: 76,
+      retrievalHits: 412,
+      avgSimilarity: 0.68,
+      acceptanceRate: 0.73,
+      similarExamples: [
+        {
+          id: 'se-1',
+          sourceRef: 'PR-190 · test_stock_transfer.py',
+          testTitle: 'transfer — insufficient stock raises error',
+          summary: 'Verifies the guard that prevents transfers when source warehouse has insufficient quantity.',
+          similarity: 0.88,
+        },
+        {
+          id: 'se-2',
+          sourceRef: 'PR-175 · test_stock_levels.py',
+          testTitle: 'StockLedger.get — returns correct quantity after update',
+          summary: 'Checks read-after-write consistency for the StockLedger service.',
+          similarity: 0.71,
+        },
+      ],
+    },
     recentActivity: [
       { id: 'act-1', message: 'Sync in progress for acme-corp/inventory-api', timestamp: '2026-07-18T10:20:00Z' },
       { id: 'act-2', message: 'Generated 2 tests for PR-210', timestamp: '2026-07-17T14:20:00Z' },
@@ -461,12 +677,70 @@ diff --git a/src/types/payment.ts b/src/types/payment.ts
       },
     ],
     memoryEntries: [
-      { id: 'mem-1', type: 'bug-fix', summary: 'Expired tokens were briefly accepted due to a clock-skew edge case.', source: 'PR-81' },
-      { id: 'mem-2', type: 'test-pattern', summary: 'Token expiry tests use an injectable clock, never real time.sleep.', source: 'internal/testutil' },
+      { id: 'mem-1', type: 'bug-fix', summary: 'Expired tokens were briefly accepted due to a clock-skew edge case.', source: 'PR-81', indexedAt: '2026-07-05T09:00:00Z' },
+      { id: 'mem-2', type: 'test-pattern', summary: 'Token expiry tests use an injectable clock, never real time.sleep.', source: 'internal/testutil', indexedAt: '2026-07-05T09:00:00Z' },
     ],
     generatedTests: [
-      { id: 'gt-1', title: 'key_rotation_test.go — old keys remain valid during grace period', linkedPr: 'PR-93', status: 'draft' },
+      {
+        id: 'gt-1',
+        title: 'key_rotation_test.go — old keys remain valid during grace period',
+        linkedPr: 'PR-93',
+        linkedPrId: 'PR-93',
+        status: 'draft',
+        generatedAt: '2026-07-15T12:30:00Z',
+        reasoning:
+          'The `KeyRotator` has a `gracePeriod` field, but no test verifies that tokens signed with the previous key are still accepted during that window. This is the critical correctness property: users should not be logged out during a rotation.',
+        testCode: `package auth_test
+
+import (
+    "context"
+    "testing"
+    "time"
+    "github.com/acme-corp/authentication-service/internal/auth"
+    "github.com/acme-corp/authentication-service/internal/testutil"
+)
+
+func TestKeyRotator_GracePeriod(t *testing.T) {
+    clock := testutil.NewFakeClock(time.Now())
+    store := auth.NewInMemoryKeyStore()
+    rotator := auth.NewKeyRotator(store, 30*24*time.Hour, 1*time.Hour, clock)
+
+    // Sign a token with the initial key
+    oldToken, _ := rotator.Sign(context.Background(), "user-123")
+
+    // Rotate to a new key
+    if err := rotator.Rotate(context.Background()); err != nil {
+        t.Fatalf("rotate: %v", err)
+    }
+
+    // Token signed with old key should still validate within grace period
+    if _, err := rotator.Validate(context.Background(), oldToken); err != nil {
+        t.Errorf("old token rejected during grace period: %v", err)
+    }
+
+    // Advance past grace period — old token should now be rejected
+    clock.Advance(2 * time.Hour)
+    if _, err := rotator.Validate(context.Background(), oldToken); err == nil {
+        t.Error("old token should be rejected after grace period")
+    }
+}`,
+      },
     ],
+    analytics: {
+      memoryCount: 54,
+      retrievalHits: 203,
+      avgSimilarity: 0.79,
+      acceptanceRate: 0.67,
+      similarExamples: [
+        {
+          id: 'se-1',
+          sourceRef: 'PR-81 · clock_skew_test.go',
+          testTitle: 'TokenValidator — rejects token expired by 1 second with clock-skew tolerance',
+          summary: 'Tests the clock-skew tolerance window to ensure tokens are not rejected prematurely.',
+          similarity: 0.85,
+        },
+      ],
+    },
     recentActivity: [
       { id: 'act-1', message: 'Sync failed: repository connection timed out', timestamp: '2026-07-15T22:10:00Z' },
       { id: 'act-2', message: 'Generated 1 test for PR-93', timestamp: '2026-07-15T12:30:00Z' },

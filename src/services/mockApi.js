@@ -124,3 +124,32 @@ export async function getSimilarExamples(_projectId, prId) {
   await delay()
   return getSimilarExamplesForPr(prId)
 }
+
+export async function getAnalyticsByProjectId(projectId) {
+  await delay()
+  const project = mockProjects.find((p) => p.id === projectId) ?? null
+  if (!project || !project.analytics) return null
+  return {
+    ...project.analytics,
+    memoryEntries: project.memoryEntries ?? [],
+  }
+}
+
+// Test generation & feedback (Anh)
+export async function getGeneratedTestsByProjectId(projectId) {
+  await delay()
+  const project = mockProjects.find((p) => p.id === projectId) ?? null
+  return project ? (project.generatedTests ?? []) : null
+}
+
+export async function getGeneratedTestById(projectId, testId) {
+  await delay()
+  const project = mockProjects.find((p) => p.id === projectId) ?? null
+  if (!project) return null
+  return (project.generatedTests ?? []).find((t) => t.id === testId) ?? null
+}
+
+export async function saveFeedback(_projectId, testId, { action, editedCode }) {
+  await delay(300)
+  return { testId, action, editedCode, savedAt: new Date().toISOString() }
+}

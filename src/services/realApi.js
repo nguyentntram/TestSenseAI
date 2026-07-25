@@ -119,3 +119,43 @@ export async function getSimilarExamples(projectId, prId) {
     throw err
   }
 }
+
+// Analytics (Trung) — endpoint not yet live; degrade to null so
+// AnalyticsPage shows its empty state instead of crashing.
+export async function getAnalyticsByProjectId(projectId) {
+  try {
+    return await request(`/projects/${encodeURIComponent(projectId)}/analytics`)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
+// Test generation & feedback (Anh) — endpoints not yet live; degrade
+// gracefully so GeneratedTestsPage/TestDetailPage show empty states.
+export async function getGeneratedTestsByProjectId(projectId) {
+  try {
+    return await request(`/projects/${encodeURIComponent(projectId)}/generated-tests`)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return []
+    throw err
+  }
+}
+
+export async function getGeneratedTestById(projectId, testId) {
+  try {
+    return await request(
+      `/projects/${encodeURIComponent(projectId)}/generated-tests/${encodeURIComponent(testId)}`,
+    )
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
+export async function saveFeedback(projectId, testId, { action, editedCode }) {
+  return request(
+    `/projects/${encodeURIComponent(projectId)}/generated-tests/${encodeURIComponent(testId)}/feedback`,
+    { method: 'POST', body: { action, editedCode } },
+  )
+}

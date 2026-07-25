@@ -9,9 +9,12 @@ import * as mockApi from './mockApi.js'
 
 const impl = API_MODE === 'mock' ? mockApi : realApi
 
+// ─── Auth (Tram) ─────────────────────────────────────────────────────────────
 export const beginGitHubLogin = impl.beginGitHubLogin
 export const getCurrentUser = impl.getCurrentUser
 export const logout = impl.logout
+
+// ─── Projects & Repositories (Tram) ──────────────────────────────────────────
 export const getRepositories = impl.getRepositories
 export const getProjects = impl.getProjects
 export const getProjectById = impl.getProjectById
@@ -19,10 +22,15 @@ export const createProject = impl.createProject
 export const updateProject = impl.updateProject
 export const deleteProject = impl.deleteProject
 
-// PR ingestion (Han) and memory/retrieval (Trung) — no real backend
-// endpoint exists yet for these (see docs/PENDING_INTEGRATIONS.md), so
-// realApi's versions degrade gracefully (empty list / not-found) instead
-// of crashing PRListPage/PRDetailPage/SimilarExamplesPanel.
+// ─── PR Ingestion & Analysis (Han) ───────────────────────────────────────────
 export const getPullRequestsByProjectId = impl.getPullRequestsByProjectId
 export const getPullRequestById = impl.getPullRequestById
+
+// ─── Memory & Retrieval (Trung) ───────────────────────────────────────────────
 export const getSimilarExamples = impl.getSimilarExamples
+export const getAnalyticsByProjectId = impl.getAnalyticsByProjectId
+
+// ─── Test Generation & Feedback (Anh) ────────────────────────────────────────
+export const getGeneratedTestsByProjectId = impl.getGeneratedTestsByProjectId
+export const getGeneratedTestById = impl.getGeneratedTestById
+export const saveFeedback = impl.saveFeedback
