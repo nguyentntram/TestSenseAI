@@ -7,7 +7,7 @@
 // (backend/src/handlers/*) get wired up next week.
 //
 // Usage:
-//   cd backend
+//   cd backend/prototypes/memory-retrieval
 //   npm install
 //   npm run prototype:similarity
 //   npm run prototype:similarity -- "your own query text here"
@@ -93,7 +93,7 @@ main().catch((err) => {
     /credentials/i.test(err.message)
   ) {
     console.error(
-      'No AWS credentials found. In backend/.env, set either AWS_BEARER_TOKEN_BEDROCK (Bedrock console -> API keys) or configure IAM credentials via `aws configure`/AWS_PROFILE. See backend/README.md section 2.',
+      'No AWS credentials found. In backend/prototypes/memory-retrieval/.env, set either AWS_BEARER_TOKEN_BEDROCK (Bedrock console -> API keys) or configure IAM credentials via `aws configure`/AWS_PROFILE. See backend/prototypes/memory-retrieval/README.md section 2.',
     )
   }
   process.exitCode = 1

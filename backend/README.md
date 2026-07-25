@@ -1,125 +1,94 @@
-# Backend Prototypes
+# TestSense AI — Backend
 
-This folder holds early backend prototypes for TestSense AI. It is
-intentionally **not** wired into the frontend app and has no shared
-dependencies with it — it exists to de-risk two decisions before real
-ingestion/search endpoints are built:
+Node.js backend for TestSense AI: GitHub OAuth sign-in, project CRUD, and
+CockroachDB access — designed to run as a single AWS Lambda function behind
+an API Gateway REST API, with a zero-dependency local dev server for
+day-to-day development.
 
-1. Which Bedrock embedding model to use.
-2. Whether a simple cosine-similarity query against sample data returns
-   sensible rankings.
+See the root [`README.md`](../README.md) for the whole-project overview,
+[`docs/API.md`](../docs/API.md) for the endpoint reference,
+[`docs/AUTH_FLOW.md`](../docs/AUTH_FLOW.md) for the OAuth/session design, and
+[`docs/DATABASE.md`](../docs/DATABASE.md) for the schema.
 
-Nothing here talks to CockroachDB or a real API Gateway/Lambda yet — see
-"What's not in scope yet" below.
+## Structure
 
-## 1. Embedding Model Choice
+```
+backend/
+├── src/
+│   ├── handlers/       # One file per route (auth/, repositories/, projects/)
+│   ├── services/       # Business logic + external integrations (GitHub, secrets, sessions, users, projects)
+│   ├── repositories/   # Raw parameterized SQL against CockroachDB
+│   ├── middleware/     # requireAuth, withErrorHandling
+│   ├── utils/          # errors, response shaping, signing, cookies, validation, logging
+│   ├── config/         # env, github, db, cors, routes
+│   ├── index.js         # Lambda entrypoint (exports `handler`)
+│   └── localServer.js   # Local dev HTTP server (translates to/from the same event shape)
+├── scripts/
+│   └── checkSyntax.js   # Zero-dependency "build" step (node --check on every source file)
+├── tests/               # node:test suites
+├── prototypes/
+│   └── memory-retrieval/   # Trung's standalone Bedrock embedding/similarity prototype —
+│                           # its own package.json, not wired into this app. See its own README.
+└── package.json
+```
 
-**Chosen model: `amazon.titan-embed-text-v2:0` (Amazon Titan Text Embeddings V2), 1024 dimensions.**
+## Prerequisites
 
-Why this model over alternatives on Bedrock:
+- Node.js 20+ (developed/tested against Node 22).
+- A CockroachDB instance (only required to actually run authenticated
+  requests end-to-end — see "What runs without a database" below).
 
-- **Cohere Embed (English/Multilingual)** — good quality, but Titan V2 is
-  priced lower per token and we don't currently need multilingual support
-  (all target repos are English-language code/PRs).
-- **Titan Embeddings V1 (`amazon.titan-embed-text-v1`)** — superseded by V2;
-  V2 supports configurable output dimensions (256 / 512 / 1024) and
-  normalization, and benchmarks better on retrieval tasks.
-- **Titan V2 at 1024 dims** (vs. 256/512) — chosen for retrieval quality;
-  storage cost of a few thousand vectors at 1024 floats is negligible, and
-  we can always re-embed at a smaller dimension later if CockroachDB vector
-  index performance becomes a concern.
-
-This is a Week 1 prototype-stage decision — revisit if next week's real
-ingestion volume/cost numbers suggest otherwise.
-
-## 2. Prerequisites
-
-- Node.js 20+ (same requirement as the frontend; `--env-file-if-exists`
-  used below needs Node 20.12+/22+ — this repo is verified against 24).
-- An AWS account with **model access requested and granted** for
-  `amazon.titan-embed-text-v2:0` in your target region:
-  1. AWS Console → Amazon Bedrock → **Model access** (left sidebar).
-  2. Click **Modify model access** (or **Manage model access**).
-  3. Check **Titan Text Embeddings V2**, submit, and wait for status to
-     show **Access granted** (usually near-instant for Titan models).
-- Authentication — pick **one**:
-  - **Bedrock API key (simplest)**: Bedrock console → **API keys** →
-    **Generate long-term API key**. Copy the value into
-    `AWS_BEARER_TOKEN_BEDROCK` in `.env`. The SDK detects this env var
-    automatically and authenticates with it — no `aws configure` needed.
-  - **IAM credentials**: `aws configure` (writes to `~/.aws/credentials`),
-    or an existing named profile exported via `AWS_PROFILE=your-profile`.
-    The IAM principal needs `bedrock:InvokeModel` on the Titan embedding
-    model resource, at minimum. Leave `AWS_BEARER_TOKEN_BEDROCK` unset in
-    `.env` if you use this path.
-
-## 3. Setup Steps
+## Setup
 
 ```bash
 cd backend
 npm install
 cp .env.example .env
+# then edit .env — see docs/AUTH_FLOW.md for how to register a GitHub OAuth App
 ```
 
-Edit `.env`: set `AWS_REGION` if not `us-east-1`, and either
-`AWS_BEARER_TOKEN_BEDROCK` (API key path) or leave it blank if you're using
-`aws configure`/`AWS_PROFILE` instead. `npm run prototype:similarity` loads
-`.env` automatically (via Node's `--env-file-if-exists`) — no extra
-`export`s needed.
-
-## 4. Running the Similarity Prototype
+## Running locally
 
 ```bash
-npm run prototype:similarity
+npm run dev     # node --watch src/localServer.js, restarts on file changes
+# or
+npm start        # node src/localServer.js, no watch
 ```
 
-This will:
+Listens on `http://localhost:$PORT` (default `3001`).
 
-1. Embed a sample PR description (a partial-refund feature, hardcoded as
-   the default query) using the chosen Bedrock model.
-2. Embed each entry in `data/sample-history.json` (a handful of past bug
-   fixes, test patterns, and conventions).
-3. Rank the history entries by cosine similarity to the query and print the
-   ranked list with scores.
-
-Pass your own query text as an argument to try a different PR description:
+## Lint, test, build
 
 ```bash
-npm run prototype:similarity -- "Adding a retry queue for failed webhook deliveries"
+npm run lint      # eslint .
+npm test          # node --test "tests/**/*.test.js"
+npm run build     # syntax-validates every file in src/ (no bundler needed — Lambda runs Node source directly)
 ```
 
-Expected output shape:
+## What runs without a database
 
-```
-Model: amazon.titan-embed-text-v2:0 (1024 dims)
-Query: "Adding the ability to issue a partial refund on a charge..."
+Everything that doesn't touch CockroachDB works out of the box with just
+the `.env` placeholders filled in with *fake-but-valid-looking* values
+(`SECRETS_PROVIDER=local` avoids needing AWS too):
 
-Ranked by similarity:
-  0.8421  [bug-fix]       PR-402 — Refund amounts could go negative when discounts were applied twice
-  0.7913  [test-pattern]  test/helpers/fakeStripeClient.ts — Payment provider calls are mocked with...
-  0.7605  [convention]    CONTRIBUTING.md — All monetary values are stored as integer cents, never floats
-  ...
-```
+- `GET /auth/github/login` — redirects to GitHub's real authorize URL (still
+  needs a real registered OAuth App's client id to actually complete sign-in
+  with GitHub, but the redirect itself works with any client id).
+- `GET /auth/me`, `GET /repositories`, `GET/POST/PATCH/DELETE /projects*` —
+  all correctly return `401 UNAUTHENTICATED` JSON when there's no session,
+  and CORS/OPTIONS preflight work, without touching the database.
+- The full `npm test` suite (63 tests) — all pure logic, signed
+  tokens/cookies, and mocked GitHub/DB interactions, no live services
+  required.
 
-If it fails with `UnrecognizedClientException` or a credentials error,
-double-check `aws configure`/`AWS_PROFILE` and that model access was
-actually granted (not just requested) in the Bedrock console for the
-region in `.env`. As of 2026-07-20, this hasn't been confirmed to run
-successfully end-to-end yet — see the "known blocker" note in project
-memory if you're picking this back up: Bedrock InvokeModel returned
-`ValidationException: Operation not allowed` on a brand-new AWS account
-with no verified payment method, independent of auth method or region.
-Check whether billing verification has since completed before re-debugging
-IAM/region.
+Actually completing a sign-in and exercising `/projects` end-to-end as an
+authenticated user requires a real GitHub OAuth App **and** a reachable
+CockroachDB with the migrations in `../database/migrations/` applied.
 
-## 5. What's Not in Scope Yet (Next Week)
+## Deploying (not yet done)
 
-- A real ingestion endpoint (pull historical tests from a connected repo,
-  embed via Bedrock, store vectors in CockroachDB) and a real
-  similarity-search API do not exist yet — this prototype only proves out
-  the model choice and cosine-similarity math in isolation.
-- No database is read or written by this prototype — `data/sample-history.json`
-  is static, hand-written sample data, not indexed repository history.
-- The frontend's `SimilarExamplesPanel` (`../src/components/prs/`) still
-  reads local mock data (`../src/data/similarExamples.js`), not this
-  prototype's output — connecting the two is next week's work.
+`src/index.js`'s `handler` export is meant to sit behind a single API
+Gateway REST API `{proxy+}` resource with `ANY` method and Lambda proxy
+integration — see `docs/API.md`'s "Deployment shape" section. No IaC
+(SAM/Serverless Framework/CDK) has been written yet; that's a reasonable
+next step once AWS credentials are available to the team.
