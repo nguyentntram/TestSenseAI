@@ -18,3 +18,11 @@ export const getProjectById = impl.getProjectById
 export const createProject = impl.createProject
 export const updateProject = impl.updateProject
 export const deleteProject = impl.deleteProject
+
+// PR ingestion (Han) and memory/retrieval (Trung) — no real backend
+// endpoint exists yet for these (see docs/PENDING_INTEGRATIONS.md), so
+// realApi's versions degrade gracefully (empty list / not-found) instead
+// of crashing PRListPage/PRDetailPage/SimilarExamplesPanel.
+export const getPullRequestsByProjectId = impl.getPullRequestsByProjectId
+export const getPullRequestById = impl.getPullRequestById
+export const getSimilarExamples = impl.getSimilarExamples

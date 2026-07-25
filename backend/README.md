@@ -26,6 +26,9 @@ backend/
 ├── scripts/
 │   └── checkSyntax.js   # Zero-dependency "build" step (node --check on every source file)
 ├── tests/               # node:test suites
+├── prototypes/
+│   └── memory-retrieval/   # Trung's standalone Bedrock embedding/similarity prototype —
+│                           # its own package.json, not wired into this app. See its own README.
 └── package.json
 ```
 

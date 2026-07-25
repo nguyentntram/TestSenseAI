@@ -378,7 +378,10 @@ detail, including exactly what code changes once Han's research lands:
 
 Memory/embedding schema and retrieval, and the analytics/similar-examples
 panel. `projects.id` (a stable UUID) and a `projects.memory_indexing_enabled`
-toggle already exist for this to build on. Full detail:
+toggle already exist for this to build on. Trung's standalone Bedrock
+embedding-model prototype lives at
+[`backend/prototypes/memory-retrieval/`](backend/prototypes/memory-retrieval/README.md)
+(its own `package.json`, not wired into the real app). Full detail:
 [`docs/PENDING_INTEGRATIONS.md`](docs/PENDING_INTEGRATIONS.md).
 
 ## 25. Security Notes (Limitations)
@@ -418,3 +421,26 @@ not oversights:
 6. Once Han/Trung's schemas land, wire the Project Workspace's Pull
    Requests/Memory tabs to real endpoints instead of their current
    "not connected yet" empty states.
+
+## 27. Frontend Contributor Guide
+
+**Adding a page:** create a file in `src/pages/`, export a default
+functional component, and register it in `src/routes/AppRoutes.jsx` inside
+the `<Route element={<AppLayout />}>` block so it gets the shared navbar/
+footer. Keep the catch-all `<Route path="*" element={<NotFoundPage />} />`
+last.
+
+**Adding a reusable component:**
+- Generic UI with no feature knowledge → `src/components/common/`.
+- App shell pieces (navbar, footer, layout wrappers) → `src/components/layout/`.
+- Feature-specific display components → a folder named for that feature
+  (e.g. `src/components/projects/`, `src/components/repositories/`).
+
+Favor small, focused components with props over configuration objects;
+functional components and Tailwind utility classes only, no CSS modules.
+
+**Adding a new API function:** add it to both `src/services/realApi.js`
+(the real `fetch` call) and `src/services/mockApi.js` (matching mock
+behavior), then re-export it from `src/services/api.js`. Pages should only
+ever import from `src/services/api.js`, never from `realApi.js`/`mockApi.js`
+directly — that's what keeps `VITE_API_MODE` a clean, one-place switch.

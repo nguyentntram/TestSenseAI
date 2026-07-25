@@ -6,6 +6,7 @@
 // other, in full.
 import { projects as seedProjects } from '../data/projects.js'
 import { repositories } from '../data/repositories.js'
+import { getSimilarExamplesForPr } from '../data/similarExamples.js'
 
 const MOCK_DELAY_MS = 400
 
@@ -98,4 +99,28 @@ export async function updateProject(projectId, projectData) {
 export async function deleteProject(projectId) {
   await delay()
   mockProjects = mockProjects.filter((project) => project.id !== projectId)
+}
+
+// PR ingestion (Han) — reads the same mutable mockProjects array so mock
+// mode stays consistent with whatever a demo has created/edited.
+export async function getPullRequestsByProjectId(projectId) {
+  await delay()
+  const project = mockProjects.find((p) => p.id === projectId) ?? null
+  return project ? (project.pullRequests ?? []) : null
+}
+
+export async function getPullRequestById(projectId, prId) {
+  await delay()
+  const project = mockProjects.find((p) => p.id === projectId) ?? null
+  if (!project) return null
+  return (project.pullRequests ?? []).find((pr) => pr.id === prId) ?? null
+}
+
+// Memory/retrieval (Trung) — hand-written mock results, see
+// src/data/similarExamples.js. Return shape (array of
+// { id, score, type, title, source, snippet }) is what the real
+// similarity-search endpoint is expected to match.
+export async function getSimilarExamples(_projectId, prId) {
+  await delay()
+  return getSimilarExamplesForPr(prId)
 }

@@ -9,6 +9,7 @@ import {
   Info,
   AlertTriangle,
   LogIn,
+  ArrowRight,
 } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Badge from '../components/common/Badge.jsx'
@@ -284,24 +285,37 @@ function PullRequestsTab({ project }) {
   }
 
   return (
-    <ul className="space-y-3">
-      {pullRequests.map((pr) => (
-        <li
-          key={pr.id}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
-        >
-          <div>
-            <p className="text-sm font-medium text-slate-900">
-              {pr.id} — {pr.title}
-            </p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Opened by {pr.author} · updated {formatRelativeTime(pr.updatedAt)}
-            </p>
-          </div>
-          <Badge tone={PR_STATUS_TONE[pr.status]}>{pr.status}</Badge>
-        </li>
-      ))}
-    </ul>
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm text-slate-500">{pullRequests.length} pull requests</p>
+        <Button as={Link} to={`/projects/${project.id}/pull-requests`} variant="secondary" size="sm">
+          View all
+        </Button>
+      </div>
+      <ul className="space-y-3">
+        {pullRequests.map((pr) => (
+          <li key={pr.id}>
+            <Link
+              to={`/projects/${project.id}/pull-requests/${pr.id}`}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition-colors hover:border-indigo-300 hover:bg-indigo-50/30"
+            >
+              <div>
+                <p className="text-sm font-medium text-slate-900">
+                  {pr.id} — {pr.title}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  by {pr.author} · updated {formatRelativeTime(pr.updatedAt)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge tone={PR_STATUS_TONE[pr.status]}>{pr.status}</Badge>
+                <ArrowRight size={14} className="text-slate-400" aria-hidden="true" />
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

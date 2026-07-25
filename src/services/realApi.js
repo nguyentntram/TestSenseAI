@@ -81,3 +81,41 @@ export async function updateProject(projectId, projectData) {
 export async function deleteProject(projectId) {
   await request(`/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' })
 }
+
+// PR ingestion (Han) and memory/retrieval (Trung) — these backend routes
+// don't exist yet (see docs/PENDING_INTEGRATIONS.md); paths below are a
+// provisional guess at the eventual contract, expected to change once
+// Han/Trung's real endpoints land. Until then a 404 is treated the same as
+// "no data yet" rather than an error, so PRListPage/PRDetailPage/
+// SimilarExamplesPanel show their existing empty states instead of crashing
+// when VITE_API_MODE=real.
+export async function getPullRequestsByProjectId(projectId) {
+  try {
+    return await request(`/projects/${encodeURIComponent(projectId)}/pull-requests`)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return []
+    throw err
+  }
+}
+
+export async function getPullRequestById(projectId, prId) {
+  try {
+    return await request(
+      `/projects/${encodeURIComponent(projectId)}/pull-requests/${encodeURIComponent(prId)}`,
+    )
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
+export async function getSimilarExamples(projectId, prId) {
+  try {
+    return await request(
+      `/projects/${encodeURIComponent(projectId)}/pull-requests/${encodeURIComponent(prId)}/similar-examples`,
+    )
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return []
+    throw err
+  }
+}
