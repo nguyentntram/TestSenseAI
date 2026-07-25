@@ -1,7 +1,9 @@
-import { Link } from 'react-router-dom'
-import { GitBranch, Database, FlaskConical, Check, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { GitBranch, Database, FlaskConical, Check, X, AlertTriangle } from 'lucide-react'
 import Button from '../components/common/Button.jsx'
 import PageContainer from '../components/common/PageContainer.jsx'
+import { useCurrentUser } from '../hooks/useCurrentUser.js'
+import { beginGitHubLogin } from '../services/api.js'
 
 const STEPS = [
   {
@@ -45,7 +47,17 @@ const COMPARISON = [
   },
 ]
 
+const AUTH_ERROR_MESSAGES = {
+  missing_parameters: 'GitHub sign-in did not complete — some information was missing. Please try again.',
+  invalid_state: 'Your sign-in session expired or looked invalid. Please try again.',
+  oauth_failed: 'We couldn’t complete GitHub sign-in. Please try again.',
+}
+
 export default function LandingPage() {
+  const { status } = useCurrentUser()
+  const [searchParams] = useSearchParams()
+  const authError = searchParams.get('auth_error')
+
   return (
     <>
       <section className="border-b border-slate-200 bg-white">
@@ -59,10 +71,24 @@ export default function LandingPage() {
               historical tests, bug fixes, and pull requests, then uses that memory to
               generate more meaningful unit and integration tests for new pull requests.
             </p>
+
+            {authError && (
+              <div className="mx-auto mt-6 flex max-w-md items-start gap-2 rounded-lg bg-red-50 px-4 py-3 text-left text-sm text-red-700">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{AUTH_ERROR_MESSAGES[authError] ?? AUTH_ERROR_MESSAGES.oauth_failed}</span>
+              </div>
+            )}
+
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button as={Link} to="/connect-repository" size="lg">
-                Connect GitHub Repository
-              </Button>
+              {status === 'signed-in' ? (
+                <Button as={Link} to="/connect-repository" size="lg">
+                  Connect a Repository
+                </Button>
+              ) : (
+                <Button onClick={() => beginGitHubLogin('/projects')} size="lg">
+                  Sign in with GitHub
+                </Button>
+              )}
               <Button as={Link} to="/projects" variant="secondary" size="lg">
                 View Projects
               </Button>

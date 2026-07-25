@@ -1,21 +1,38 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { GitBranch, GitPullRequest, Database, FlaskConical, Settings, Info } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  GitBranch,
+  GitPullRequest,
+  Database,
+  FlaskConical,
+  Settings,
+  Info,
+  AlertTriangle,
+  LogIn,
+} from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Badge from '../components/common/Badge.jsx'
 import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
-import { getProjectById } from '../services/api.js'
+import {
+  getProjectById,
+  updateProject,
+  deleteProject,
+  beginGitHubLogin,
+} from '../services/api.js'
+import { ApiError } from '../services/ApiError.js'
 import { formatRelativeTime } from '../utils/format.js'
 
 const SYNC_STATUS_TONE = {
+  pending: 'neutral',
   synced: 'success',
   syncing: 'info',
   error: 'error',
 }
 
 const SYNC_STATUS_LABEL = {
+  pending: 'Pending',
   synced: 'Synced',
   syncing: 'Syncing…',
   error: 'Sync error',
@@ -32,15 +49,20 @@ export default function ProjectWorkspacePage() {
   useEffect(() => {
     let cancelled = false
 
-    getProjectById(projectId).then((data) => {
-      if (cancelled) return
-      if (data) {
-        setProject(data)
-        setStatus('loaded')
-      } else {
-        setStatus('not-found')
-      }
-    })
+    getProjectById(projectId)
+      .then((data) => {
+        if (cancelled) return
+        if (data) {
+          setProject(data)
+          setStatus('loaded')
+        } else {
+          setStatus('not-found')
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setStatus(err instanceof ApiError && err.status === 401 ? 'unauthenticated' : 'error')
+      })
 
     return () => {
       cancelled = true
@@ -51,6 +73,36 @@ export default function ProjectWorkspacePage() {
     return (
       <PageContainer>
         <LoadingState label="Loading project…" />
+      </PageContainer>
+    )
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <PageContainer>
+        <EmptyState
+          icon={LogIn}
+          title="Sign in to view this project"
+          description="This project is tied to your GitHub account. Sign in to continue."
+          action={
+            <Button onClick={() => beginGitHubLogin(`/projects/${projectId}`)}>
+              Sign in with GitHub
+            </Button>
+          }
+        />
+      </PageContainer>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <PageContainer>
+        <EmptyState
+          icon={AlertTriangle}
+          title="Couldn't load this project"
+          description="Something went wrong while contacting the backend. Please try again."
+          action={<Button onClick={() => window.location.reload()}>Retry</Button>}
+        />
       </PageContainer>
     )
   }
@@ -78,8 +130,8 @@ export default function ProjectWorkspacePage() {
           <h1 className="text-2xl font-semibold text-slate-900">{project.name}</h1>
           <p className="mt-1 text-sm text-slate-500">{project.description}</p>
         </div>
-        <Badge tone={SYNC_STATUS_TONE[project.syncStatus]}>
-          {SYNC_STATUS_LABEL[project.syncStatus]}
+        <Badge tone={SYNC_STATUS_TONE[project.syncStatus] ?? 'neutral'}>
+          {SYNC_STATUS_LABEL[project.syncStatus] ?? project.syncStatus}
         </Badge>
       </div>
 
@@ -88,14 +140,18 @@ export default function ProjectWorkspacePage() {
           <dt className="sr-only">Repository</dt>
           <dd>{project.repositoryFullName}</dd>
         </div>
-        <div className="flex items-center gap-1.5">
-          <dt className="sr-only">Language</dt>
-          <dd>{project.language}</dd>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <dt className="sr-only">Test framework</dt>
-          <dd>{project.testFramework}</dd>
-        </div>
+        {project.language && (
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">Language</dt>
+            <dd>{project.language}</dd>
+          </div>
+        )}
+        {project.testFramework && (
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">Test framework</dt>
+            <dd>{project.testFramework}</dd>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <GitBranch size={14} className="text-slate-400" aria-hidden="true" />
           <dt className="sr-only">Default branch</dt>
@@ -128,7 +184,7 @@ export default function ProjectWorkspacePage() {
         {activeTab === 'Pull Requests' && <PullRequestsTab project={project} />}
         {activeTab === 'Memory' && <MemoryTab project={project} />}
         {activeTab === 'Generated Tests' && <GeneratedTestsTab project={project} />}
-        {activeTab === 'Settings' && <SettingsTab project={project} />}
+        {activeTab === 'Settings' && <SettingsTab project={project} onProjectChange={setProject} />}
       </div>
     </PageContainer>
   )
@@ -138,47 +194,62 @@ function DemoDataNotice() {
   return (
     <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
       <Info size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-      <span>These metrics are demo data for the Week 1 frontend prototype, not live results.</span>
+      <span>These metrics are demo data, not live results.</span>
     </div>
   )
 }
 
 function OverviewTab({ project }) {
+  const hasMockMetrics = Boolean(project.metrics)
+
   return (
     <div>
-      <DemoDataNotice />
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
-          icon={FlaskConical}
-          label="Tests generated"
-          value={project.metrics.testsGenerated}
-        />
-        <MetricCard
-          icon={GitPullRequest}
-          label="Pull requests analyzed"
-          value={project.metrics.pullRequestsAnalyzed}
-        />
-        <MetricCard
-          icon={Database}
-          label="Estimated coverage"
-          value={project.metrics.coverageEstimate}
-        />
-      </div>
+      {hasMockMetrics && (
+        <>
+          <DemoDataNotice />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <MetricCard
+              icon={FlaskConical}
+              label="Tests generated"
+              value={project.metrics.testsGenerated}
+            />
+            <MetricCard
+              icon={GitPullRequest}
+              label="Pull requests analyzed"
+              value={project.metrics.pullRequestsAnalyzed}
+            />
+            <MetricCard
+              icon={Database}
+              label="Estimated coverage"
+              value={project.metrics.coverageEstimate}
+            />
+          </div>
+        </>
+      )}
 
       <h3 className="mt-8 text-sm font-semibold text-slate-900">Recent activity</h3>
-      <ul className="mt-3 space-y-3">
-        {project.recentActivity.map((entry) => (
-          <li
-            key={entry.id}
-            className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"
-          >
-            <span className="text-slate-700">{entry.message}</span>
-            <span className="shrink-0 text-xs text-slate-400">
-              {formatRelativeTime(entry.timestamp)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {project.recentActivity?.length > 0 ? (
+        <ul className="mt-3 space-y-3">
+          {project.recentActivity.map((entry) => (
+            <li
+              key={entry.id}
+              className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+              <span className="text-slate-700">{entry.message}</span>
+              <span className="shrink-0 text-xs text-slate-400">
+                {formatRelativeTime(entry.timestamp)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-3">
+          <EmptyState
+            title="No activity yet"
+            description="Repository indexing and sync activity will appear here once it begins."
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -197,14 +268,24 @@ function MetricCard({ icon: Icon, label, value }) {
 
 const PR_STATUS_TONE = { open: 'info', merged: 'success', closed: 'neutral' }
 
+// `project.pullRequests` only exists in the mock dataset today — real PR
+// ingestion is Han's assigned work and isn't wired up yet (see
+// docs/PENDING_INTEGRATIONS.md). Treat "undefined" the same as "empty".
 function PullRequestsTab({ project }) {
-  if (project.pullRequests.length === 0) {
-    return <EmptyState title="No pull requests yet" description="Pull requests will show up here once analyzed." />
+  const pullRequests = project.pullRequests ?? []
+
+  if (pullRequests.length === 0) {
+    return (
+      <EmptyState
+        title="Pull request data isn't connected yet"
+        description="PR ingestion is being built separately. Once it's wired up, pull requests analyzed for this project will show up here."
+      />
+    )
   }
 
   return (
     <ul className="space-y-3">
-      {project.pullRequests.map((pr) => (
+      {pullRequests.map((pr) => (
         <li
           key={pr.id}
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
@@ -224,14 +305,23 @@ function PullRequestsTab({ project }) {
   )
 }
 
+// `project.memoryEntries` only exists in the mock dataset — real memory
+// indexing/retrieval is Trung's assigned work and isn't wired up yet.
 function MemoryTab({ project }) {
-  if (project.memoryEntries.length === 0) {
-    return <EmptyState title="No repository memory yet" description="Memory builds up as pull requests and history are indexed." />
+  const memoryEntries = project.memoryEntries ?? []
+
+  if (memoryEntries.length === 0) {
+    return (
+      <EmptyState
+        title="Repository memory isn't connected yet"
+        description="Memory indexing and retrieval is being built separately. Once available, relevant history for this project will show up here."
+      />
+    )
   }
 
   return (
     <ul className="space-y-3">
-      {project.memoryEntries.map((entry) => (
+      {memoryEntries.map((entry) => (
         <li key={entry.id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
           <Badge tone="neutral">{entry.type}</Badge>
           <p className="mt-2 text-sm text-slate-700">{entry.summary}</p>
@@ -245,13 +335,20 @@ function MemoryTab({ project }) {
 const TEST_STATUS_TONE = { ready: 'success', draft: 'warning' }
 
 function GeneratedTestsTab({ project }) {
-  if (project.generatedTests.length === 0) {
-    return <EmptyState title="No tests generated yet" description="Generated tests will appear here after a pull request is analyzed." />
+  const generatedTests = project.generatedTests ?? []
+
+  if (generatedTests.length === 0) {
+    return (
+      <EmptyState
+        title="No tests generated yet"
+        description="Generated tests will appear here once test generation is built."
+      />
+    )
   }
 
   return (
     <ul className="space-y-3">
-      {project.generatedTests.map((test) => (
+      {generatedTests.map((test) => (
         <li
           key={test.id}
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
@@ -267,30 +364,156 @@ function GeneratedTestsTab({ project }) {
   )
 }
 
-function SettingsTab({ project }) {
+function SettingsTab({ project, onProjectChange }) {
+  const navigate = useNavigate()
+
+  const [name, setName] = useState(project.name)
+  const [defaultBranch, setDefaultBranch] = useState(project.defaultBranch)
+  const [testFramework, setTestFramework] = useState(project.testFramework ?? '')
+  const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
+  const [saveError, setSaveError] = useState('')
+  const [deleteState, setDeleteState] = useState('idle') // idle | confirming | deleting | error
+  const [deleteError, setDeleteError] = useState('')
+
+  async function handleSave(event) {
+    event.preventDefault()
+    setSaveState('saving')
+    setSaveError('')
+    try {
+      const updated = await updateProject(project.id, {
+        name,
+        defaultBranch,
+        testFramework: testFramework || undefined,
+      })
+      onProjectChange(updated)
+      setSaveState('saved')
+    } catch (err) {
+      setSaveState('error')
+      setSaveError(err instanceof ApiError ? err.message : 'Could not save changes.')
+    }
+  }
+
+  async function handleDelete() {
+    setDeleteState('deleting')
+    setDeleteError('')
+    try {
+      await deleteProject(project.id)
+      navigate('/projects')
+    } catch (err) {
+      setDeleteState('error')
+      setDeleteError(err instanceof ApiError ? err.message : 'Could not delete this project.')
+    }
+  }
+
   return (
-    <div className="max-w-lg rounded-lg border border-slate-200 bg-white p-5">
-      <div className="flex items-center gap-2 text-slate-400">
-        <Settings size={16} aria-hidden="true" />
-        <span className="text-xs font-medium uppercase tracking-wide">Project settings</span>
+    <div className="max-w-lg space-y-6">
+      <form onSubmit={handleSave} className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Settings size={16} aria-hidden="true" />
+          <span className="text-xs font-medium uppercase tracking-wide">Project settings</span>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label htmlFor="settings-name" className="block text-sm font-medium text-slate-700">
+              Project name
+            </label>
+            <input
+              id="settings-name"
+              type="text"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value)
+                setSaveState('idle')
+              }}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-indigo-600"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="settings-branch" className="block text-sm font-medium text-slate-700">
+              Default branch
+            </label>
+            <input
+              id="settings-branch"
+              type="text"
+              value={defaultBranch}
+              onChange={(event) => {
+                setDefaultBranch(event.target.value)
+                setSaveState('idle')
+              }}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-indigo-600"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="settings-framework" className="block text-sm font-medium text-slate-700">
+              Test framework
+            </label>
+            <input
+              id="settings-framework"
+              type="text"
+              value={testFramework}
+              onChange={(event) => {
+                setTestFramework(event.target.value)
+                setSaveState('idle')
+              }}
+              placeholder="e.g. Jest, Pytest, Go test"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-600 focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-indigo-600"
+            />
+          </div>
+        </div>
+
+        {saveState === 'error' && (
+          <p className="mt-3 text-xs text-red-600">{saveError}</p>
+        )}
+        {saveState === 'saved' && (
+          <p className="mt-3 text-xs text-emerald-600">Saved.</p>
+        )}
+
+        <div className="mt-4">
+          <Button type="submit" size="sm" disabled={saveState === 'saving' || !name.trim() || !defaultBranch.trim()}>
+            {saveState === 'saving' ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      </form>
+
+      <div className="rounded-lg border border-red-200 bg-white p-5">
+        <span className="text-xs font-medium uppercase tracking-wide text-red-500">
+          Danger zone
+        </span>
+        <p className="mt-2 text-sm text-slate-600">
+          Disconnecting removes this project from TestSense AI. Your GitHub repository itself is
+          not affected.
+        </p>
+
+        {deleteError && <p className="mt-2 text-xs text-red-600">{deleteError}</p>}
+
+        {deleteState !== 'confirming' ? (
+          <Button
+            variant="danger"
+            size="sm"
+            className="mt-4"
+            onClick={() => setDeleteState('confirming')}
+          >
+            Disconnect project
+          </Button>
+        ) : (
+          <div className="mt-4 flex items-center gap-2">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteState === 'deleting'}
+            >
+              {deleteState === 'deleting' ? 'Disconnecting…' : 'Confirm disconnect'}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setDeleteState('idle')}>
+              Cancel
+            </Button>
+          </div>
+        )}
       </div>
-      <dl className="mt-4 space-y-3 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-slate-500">Project name</dt>
-          <dd className="font-medium text-slate-900">{project.name}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-slate-500">Repository</dt>
-          <dd className="font-medium text-slate-900">{project.repositoryFullName}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-slate-500">Default branch</dt>
-          <dd className="font-medium text-slate-900">{project.defaultBranch}</dd>
-        </div>
-      </dl>
-      <p className="mt-4 text-xs text-slate-400">
-        Settings are read-only in this Week 1 frontend prototype.
-      </p>
     </div>
   )
 }
