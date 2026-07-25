@@ -1,0 +1,13 @@
+{
+  "name": "testsense-ai-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Backend prototypes for TestSense AI. Standalone from the frontend app — no shared dependencies or build step.",
+  "scripts": {
+    "prototype:similarity": "node --env-file-if-exists=.env scripts/prototype-similarity.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.700.0"
+  }
+}

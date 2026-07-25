@@ -7,6 +7,7 @@
 
 import { projects } from '../data/projects.js'
 import { repositories } from '../data/repositories.js'
+import { getSimilarExamplesForPr } from '../data/similarExamples.js'
 
 const MOCK_DELAY_MS = 500
 
@@ -40,6 +41,15 @@ export async function getPullRequestById(projectId, prId) {
   const project = projects.find((p) => p.id === projectId) ?? null
   if (!project) return null
   return project.pullRequests.find((pr) => pr.id === prId) ?? null
+}
+
+// Reads local mock data today. Once the real similarity-search endpoint
+// exists (next week), swap this body for a fetch call — the return shape
+// (array of { id, score, type, title, source, snippet }) is meant to stay
+// the same so SimilarExamplesPanel doesn't need to change.
+export async function getSimilarExamples(_projectId, prId) {
+  await delay()
+  return getSimilarExamplesForPr(prId)
 }
 
 export async function connectRepository(configuration) {
