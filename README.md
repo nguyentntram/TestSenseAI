@@ -2,364 +2,445 @@
 
 ## 1. Project Overview
 
-TestSense AI (internally nicknamed **Coco**) is an AI-powered testing assistant.
-It is designed to learn from a repository's historical tests, bug fixes, pull
-requests, and testing conventions, and to eventually use that history as
-context for generating meaningful unit and integration tests for new pull
-requests.
-
-This repository currently contains the **Week 1 frontend prototype**: a
-React + Vite + Tailwind CSS application that demonstrates the core user
-flows with mock data. No backend, database, or AI services exist yet.
+TestSense AI (internally nicknamed **Coco**) is an AI-powered testing
+assistant. It connects to a GitHub repository, learns from that
+repository's historical tests, bug fixes, pull requests, and testing
+conventions, and — eventually — uses that history as context to generate
+more meaningful unit and integration tests for new pull requests.
 
 ## 2. Problem Being Solved
 
 Generic AI test generators only look at the diff in front of them. They
-don't know:
-
-- which edge cases your team has already been bitten by,
-- what testing conventions and helper utilities your repository already uses,
-- or which parts of the codebase are historically fragile.
-
-TestSense AI aims to close that gap by building a "memory" of a
-repository's testing history and bug fixes, then using that memory as
-context when generating tests for new pull requests — producing tests that
-are relevant to *this* codebase, not a generic one.
+don't know which edge cases your team has already been bitten by, what
+testing conventions your repository already uses, or which parts of the
+codebase are historically fragile. TestSense AI closes that gap by building
+a "memory" of a repository's testing history and using it as context when
+generating tests — producing tests relevant to *this* codebase, not a
+generic one.
 
 ## 3. Main Planned Features
 
 - Connect a GitHub repository and continuously index its history.
 - Build a searchable "repository memory" from past bug fixes, PRs, and test
-  patterns (using vector embeddings for retrieval).
+  patterns (vector embeddings for retrieval).
 - Automatically generate context-aware unit/integration tests for new pull
-  requests, informed by that memory.
+  requests.
 - Surface generated tests, memory entries, and pull request activity in a
   per-project workspace.
 - Secure, permissioned access to connected repositories.
 
-## 4. Week 1 Implemented Scope (This Repository)
+## 4. Architecture
 
-This branch (`feature/frontend-scaffold`) implements the **frontend-only**
-scaffold for the project:
+```
+Browser (React SPA, Vite)
+   │  fetch, credentials: 'include' (HttpOnly session cookie)
+   ▼
+Backend (Node.js, single Lambda handler / local HTTP server)
+   │                              │
+   │  GitHub REST + OAuth API     │  parameterized SQL (pg)
+   ▼                              ▼
+GitHub                       CockroachDB (users, projects)
+   ▲
+   │ token stored via
+   ▼
+AWS Secrets Manager (or an in-memory local dev provider)
+```
 
-- Landing page
-- Projects list page
-- Connect Repository mock flow (multi-step, local state only)
-- Project workspace placeholder page
-- 404 / Not Found page
-- Shared component library (buttons, badges, cards, empty/loading states, etc.)
-- Mock data + a placeholder service layer (`src/services/api.js`) designed to
-  be swapped for real REST calls later
+- **Frontend:** React + Vite + Tailwind CSS + React Router, JavaScript (no
+  TypeScript). See `src/`.
+- **Backend:** Node.js handlers shaped for API Gateway REST proxy
+  integration, one shared route table drives both a Lambda entrypoint and a
+  zero-dependency local dev server. See `backend/`.
+- **Database:** CockroachDB (PostgreSQL wire-compatible) via `pg`. See
+  `database/` and `docs/DATABASE.md`.
+- **Secrets:** GitHub OAuth tokens are stored through a provider
+  abstraction — AWS Secrets Manager in real environments, an in-memory
+  provider for local development. The database only ever stores an opaque
+  reference, never the raw token.
+- **Auth:** classic GitHub OAuth App authorization-code flow; application
+  session is a signed HttpOnly cookie (not a token in `localStorage`, not
+  exposed to React). See `docs/AUTH_FLOW.md`.
 
-Nothing in this branch talks to GitHub, AWS, a database, or an AI model —
-everything is mock data and local React state, by design.
+This is a hackathon-scale MVP architecture, not a hardened production
+system — see "Security Notes" below and each doc's "Limitations" sections
+for the specific tradeoffs made and what to change before shipping this for
+real users.
 
-## 5. Current Frontend Stack
+## 5. Frontend and Backend Folder Structure
 
-- [React](https://react.dev/) (functional components + hooks)
-- [Vite](https://vite.dev/) as the build tool / dev server
-- Plain JavaScript (no TypeScript)
-- [Tailwind CSS v4](https://tailwindcss.com/) (via `@tailwindcss/vite`)
-- [React Router](https://reactrouter.com/) for client-side routing
-- [Lucide React](https://lucide.dev/) for icons
-- npm for package management
-- ESLint for linting
+```
+src/                           # Frontend (React + Vite)
+├── components/
+│   ├── common/                 # Button, Badge, EmptyState, LoadingState, PageContainer, StepIndicator
+│   ├── layout/                  # Navbar, Footer, AppLayout
+│   ├── projects/                 # ProjectCard
+│   └── repositories/              # RepositoryCard
+├── config/                      # apiConfig.js (real vs. mock switch)
+├── data/                         # Mock data (used only in explicit mock mode)
+├── hooks/                        # useCurrentUser.js
+├── pages/                        # One component per route
+├── routes/                       # AppRoutes.jsx
+├── services/                     # api.js (switch), realApi.js, mockApi.js, ApiError.js
+├── utils/                        # format.js
+├── App.jsx / main.jsx / index.css
 
-## 6. Planned Full Stack
+backend/                       # Backend (Node.js)
+├── src/
+│   ├── handlers/                 # One file per route (auth/, repositories/, projects/)
+│   ├── services/                  # GitHub OAuth/API, secrets, sessions, users, projects
+│   ├── repositories/               # Raw parameterized SQL
+│   ├── middleware/                 # requireAuth, withErrorHandling
+│   ├── utils/                       # errors, response shaping, signing, cookies, validation, logging
+│   ├── config/                      # env, github, db, cors, routes
+│   ├── index.js                      # Lambda entrypoint
+│   └── localServer.js                # Local dev HTTP server
+├── scripts/checkSyntax.js         # Zero-dependency "build" step
+├── tests/                          # node:test suites
+└── package.json
 
-**Backend (future):**
-- AWS Lambda
-- API Gateway
-- AWS Step Functions
-- REST APIs
-- GitHub Webhooks
+database/
+├── migrations/                  # SQL migrations (users, projects)
+└── README.md
 
-**Database (future):**
-- CockroachDB
-- Vector embeddings for historical-memory retrieval
+docs/
+├── API.md                       # Full endpoint reference
+├── AUTH_FLOW.md                 # OAuth + session design in detail
+├── DATABASE.md                  # Schema, relationships, what Han/Trung should reference
+├── PENDING_INTEGRATIONS.md      # Everything waiting on Han/Trung, and why
+└── TEAM_HANDOFF.md              # Detailed handoff notes for this change
+```
 
-**AI (future):**
-- Amazon Bedrock with Claude
-- Embedding models
-
-**Security (future):**
-- Authentication and authorization
-- API access control
-- Repository permission management
-- AWS Secrets Manager
-
-None of the above exist in this repository yet. They are documented here so
-the frontend is built with the eventual integration points in mind (see
-"Explanation of the placeholder API service" below).
-
-## 7. Prerequisites
+## 6. Prerequisites
 
 - [Git](https://git-scm.com/)
-- [Node.js](https://nodejs.org/) — version 20 or later recommended (this
-  project was built and verified against Node.js 22)
-- npm (comes bundled with Node.js)
+- [Node.js](https://nodejs.org/) 20+ (built/tested against Node 22) — same
+  requirement for both frontend and backend.
+- npm (bundled with Node.js).
+- Optional, only needed to exercise the backend fully: a reachable
+  CockroachDB instance, a registered GitHub OAuth App, and (for
+  `SECRETS_PROVIDER=aws`) an AWS account with Secrets Manager access.
 
-## 8. Installing Node.js (If It's Missing)
+### Installing Node.js if it's missing
 
-Check first — you may already have it (see the version-check section below).
-If not:
-
-- **Windows / macOS:** download the LTS installer from
-  [nodejs.org](https://nodejs.org/) and run it.
-- **macOS (Homebrew):**
-  ```bash
-  brew install node
-  ```
-- **Windows (winget):**
-  ```powershell
-  winget install OpenJS.NodeJS.LTS
-  ```
-- **Linux (nvm, recommended so you can manage versions):**
+- **Windows/macOS:** download the LTS installer from
+  [nodejs.org](https://nodejs.org/).
+- **macOS (Homebrew):** `brew install node`
+- **Windows (winget):** `winget install OpenJS.NodeJS.LTS`
+- **Linux (nvm):**
   ```bash
   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
   nvm install --lts
   ```
 
-## 9. Verifying Node and npm Versions
+### Verifying Node and npm versions
 
 ```bash
 node --version
 npm --version
 ```
 
-You should see Node `v20.x` or later, and an npm `10.x` or later.
+You should see Node `v20.x`+ and npm `10.x`+.
 
-## 10. Cloning the Repository
+## 7. Clone and Branch
 
 ```bash
 git clone https://github.com/nguyentntram/TestSenseAI.git
 cd TestSenseAI
-```
-
-## 11. Switching to the Correct Branch
-
-```bash
-git switch develop
-git pull origin develop
+git switch main
+git pull origin main
 git switch -c feature/your-feature-name
 ```
 
-This frontend scaffold itself lives on `feature/frontend-scaffold`, branched
-from `develop`. If you specifically need to check out this scaffold branch:
+(This repository uses a single-branch `main`-based workflow — see
+"Branch and PR Workflow" below.)
+
+## 8. Install Dependencies
+
+Frontend and backend have **separate** `package.json` files and must be
+installed separately:
 
 ```bash
-git fetch origin
-git switch feature/frontend-scaffold
-```
-
-## 12. Installing Dependencies
-
-```bash
+# Frontend (repo root)
 npm install
+
+# Backend
+cd backend
+npm install
+cd ..
 ```
 
-## 13. Starting the Development Server
+## 9. Configure Local Environment Placeholders
+
+Two separate `.env.example` files — copy each and fill in real values only
+where you have them:
+
+```bash
+cp .env.example .env                   # frontend
+cp backend/.env.example backend/.env   # backend
+```
+
+Frontend `.env` only needs `VITE_API_MODE` (`real` or `mock`) and
+`VITE_API_BASE_URL`. It never needs a GitHub client id/secret — see
+`.env.example`'s comment. Backend `.env` needs the GitHub OAuth App
+credentials, signing secrets, secrets-provider selection, and
+`DATABASE_URL` — see `backend/.env.example` and `docs/AUTH_FLOW.md`.
+
+## 10. Run the Frontend
 
 ```bash
 npm run dev
 ```
 
-Vite will print a local URL (typically `http://localhost:5173`). Open it in
-your browser.
+Vite prints a local URL (typically `http://localhost:5173`).
 
-## 14. Running Lint
+By default (`VITE_API_MODE=real`), the frontend expects the backend running
+at `VITE_API_BASE_URL` (default `http://localhost:3001`). Set
+`VITE_API_MODE=mock` in `.env` to run the frontend standalone against
+in-memory demo data instead (no backend required) — useful for UI work that
+doesn't need real auth/data.
+
+## 11. Run the Backend Locally
 
 ```bash
+cd backend
+npm run dev      # node --watch, restarts on changes
+```
+
+Listens on `http://localhost:3001` by default. Auth-required endpoints
+correctly return `401` without a database; see `backend/README.md`'s "What
+runs without a database" section for exactly what does and doesn't need
+CockroachDB running.
+
+## 12. Lint and Tests
+
+```bash
+# Frontend
 npm run lint
-```
-
-## 15. Creating a Production Build
-
-```bash
 npm run build
+
+# Backend
+cd backend
+npm run lint
+npm test          # node --test, 63 tests
+npm run build     # syntax-validates every backend source file
 ```
 
-Output is written to `dist/`. Preview the production build locally with:
+## 13. API Endpoint Table
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/auth/github/login` | none | Redirect to GitHub's authorize URL |
+| GET | `/auth/github/callback` | none | GitHub redirects here; establishes the session |
+| GET | `/auth/me` | required | Current signed-in user |
+| POST | `/auth/logout` | none | Clears the session cookie |
+| GET | `/repositories` | required | List the signed-in user's GitHub repositories |
+| GET | `/projects` | required | List the caller's own projects |
+| POST | `/projects` | required | Connect a repository as a new project (idempotent) |
+| GET | `/projects/{projectId}` | required | Get one project (404 if not the caller's) |
+| PATCH | `/projects/{projectId}` | required | Update project fields |
+| DELETE | `/projects/{projectId}` | required | Disconnect/delete a project |
+
+Full request/response shapes, error codes, and the 404-vs-403 security
+policy: [`docs/API.md`](docs/API.md).
+
+## 14. OAuth Flow (summary)
+
+Sign in with GitHub → backend redirect to GitHub → GitHub redirects back
+with a code → backend exchanges it for a token → backend finds/creates the
+local user → token stored via Secrets Manager (only a reference goes in the
+database) → signed HttpOnly session cookie issued → frontend is signed in.
+Full step-by-step, the CSRF `state` design, and known limitations:
+[`docs/AUTH_FLOW.md`](docs/AUTH_FLOW.md).
+
+## 15. Database Schema (summary)
+
+Two tables: `users` (one row per GitHub sign-in) and `projects` (one row
+per connected repository, `UUID` id, unique per `(user_id, repository_id)`,
+every query scoped by `user_id`). Full column tables, indexes, and how
+Han's PR data / Trung's memory data should reference `projects.id`:
+[`docs/DATABASE.md`](docs/DATABASE.md).
+
+## 16. Secrets Manager Behavior (summary)
+
+`backend/src/services/secrets/secretsService.js` picks an AWS or local
+in-memory provider based on `SECRETS_PROVIDER`. Naming:
+`<SECRETS_NAME_PREFIX>/github-oauth-token/<userId>`. Full IAM permissions
+needed and provider details: [`docs/AUTH_FLOW.md`](docs/AUTH_FLOW.md) and
+inline comments in `backend/src/services/secrets/awsSecretsProvider.js`.
+
+## 17. Required AWS Services
+
+- **Secrets Manager** — GitHub OAuth token storage (`SECRETS_PROVIDER=aws`).
+  IAM permissions needed: `secretsmanager:CreateSecret`,
+  `PutSecretValue`, `GetSecretValue`, `DeleteSecret`, scoped to a resource
+  ARN matching `<SECRETS_NAME_PREFIX>/github-oauth-token/*`.
+- **Lambda** + **API Gateway** — hosting the backend (not yet deployed; see
+  `docs/API.md`'s "Deployment shape").
+- CockroachDB itself is not an AWS service (CockroachDB Cloud/Serverless or
+  self-hosted).
+
+None of this has been provisioned or exercised against real AWS in this
+change — see "What Requires Real Cloud Credentials" below.
+
+## 18. Required GitHub OAuth App Settings
+
+Register at <https://github.com/settings/developers> → "New OAuth App":
+
+| Field | Local dev value |
+|---|---|
+| Homepage URL | `http://localhost:5173` |
+| Authorization callback URL | `http://localhost:3001/auth/github/callback` |
+
+Put the generated client id/secret in `backend/.env`. Never commit them.
+
+## 19. Callback URL Examples
+
+| Environment | Callback URL |
+|---|---|
+| Local dev | `http://localhost:3001/auth/github/callback` |
+| Example staging | `https://api-staging.testsense.ai/auth/github/callback` |
+| Example production | `https://api.testsense.ai/auth/github/callback` |
+
+A separate GitHub OAuth App (separate client id/secret) is needed per
+environment, since each app has exactly one callback URL configured.
+
+## 20. Branch and PR Workflow
+
+This project uses a **single-branch `main`-based workflow** (no `develop`):
 
 ```bash
-npm run preview
-```
-
-## 16. Folder Structure
-
-```
-src/
-├── components/
-│   ├── common/        # Generic, reusable UI primitives (Button, Badge, etc.)
-│   ├── layout/         # App shell pieces (Navbar, Footer, AppLayout)
-│   ├── projects/        # Components specific to the Projects page (ProjectCard)
-│   └── repositories/    # Components specific to repository selection (RepositoryCard)
-├── data/                # Mock data (projects, repositories)
-├── pages/               # One component per route
-├── routes/              # Route configuration (AppRoutes.jsx)
-├── services/            # Placeholder API layer (api.js)
-├── utils/               # Small shared helpers (date formatting, etc.)
-├── App.jsx
-├── main.jsx
-└── index.css
-```
-
-## 17. Route Table
-
-| Path                    | Page                    | Description                                   |
-| ------------------------ | ------------------------ | ---------------------------------------------- |
-| `/`                       | `LandingPage`             | Marketing/explainer landing page                |
-| `/projects`               | `ProjectsPage`            | Searchable grid of connected (mock) projects    |
-| `/connect-repository`     | `ConnectRepositoryPage`   | 5-step mock "connect a repository" flow         |
-| `/projects/:projectId`    | `ProjectWorkspacePage`    | Per-project workspace with tabs                 |
-| `*`                       | `NotFoundPage`            | 404 fallback for any unmatched route            |
-
-## 18. Explanation of Mock Data
-
-All mock data lives in `src/data/`, separate from pages and components:
-
-- `src/data/projects.js` — three seeded mock projects (Payment Service,
-  Inventory API, Authentication Service), each with consistent fields
-  (language, test framework, default branch, memory count, sync status,
-  pull requests, memory entries, generated tests, recent activity, and
-  summary metrics).
-- `src/data/repositories.js` — mock repositories used by the Connect
-  Repository flow's "select a repository" step.
-
-This data intentionally never changes shape — it mirrors the fields a real
-API response would eventually contain, so pages can be rewired to a real
-backend without changing their rendering logic.
-
-## 19. Explanation of the Placeholder API Service
-
-`src/services/api.js` exports a small set of `async` functions that stand in
-for future REST calls:
-
-- `getProjects()`
-- `getProjectById(projectId)`
-- `getRepositories()`
-- `connectRepository(configuration)`
-
-Each function currently reads from `src/data/*.js` and resolves after a
-short artificial delay (to make loading states testable). When the real
-backend (API Gateway + Lambda) exists, replace the body of each function
-with a `fetch` call — the function signatures and return shapes are meant
-to stay the same, so no page or component should need to change.
-
-## 20. How Another Team Member Adds a Page
-
-1. Create a new file in `src/pages/`, e.g. `src/pages/SettingsPage.jsx`.
-2. Export a default functional component.
-3. Register it in `src/routes/AppRoutes.jsx` (see the next section).
-4. Reuse existing components from `src/components/common/` (`PageContainer`,
-   `Button`, `EmptyState`, `LoadingState`, etc.) instead of rebuilding layout
-   primitives.
-
-## 21. How Another Team Member Adds a Route
-
-Open `src/routes/AppRoutes.jsx` and add a `<Route>` inside the `<Route
-element={<AppLayout />}>` block so the new page automatically gets the
-shared navbar and footer:
-
-```jsx
-<Route path="/your-path" element={<YourNewPage />} />
-```
-
-Keep the catch-all `<Route path="*" element={<NotFoundPage />} />` last.
-
-## 22. How Another Team Member Adds a Reusable Component
-
-- Shared, generic UI (works anywhere, knows nothing about projects or
-  repositories specifically) → `src/components/common/`.
-- App shell pieces (navbar, footer, page layout wrappers) →
-  `src/components/layout/`.
-- Feature-specific display components (e.g. anything only the Projects page
-  needs) → `src/components/projects/`.
-- Feature-specific components for repository selection/connection →
-  `src/components/repositories/`.
-
-Favor small, focused components with props over configuration objects, and
-follow the existing style: functional components, Tailwind utility classes,
-no CSS modules or styled-components.
-
-## 23. How Another Team Member Adds Mock Data
-
-1. Add or extend a file in `src/data/` (e.g. `src/data/pullRequests.js` if a
-   dataset grows large enough to deserve its own file).
-2. Keep field names consistent with existing mock objects so components stay
-   reusable.
-3. If the new data should be reachable through the service layer, add a
-   corresponding function to `src/services/api.js` (with the same `async` +
-   artificial-delay pattern used by the existing functions) rather than
-   importing `src/data/*.js` directly into a page or component.
-
-## 24. Git Branch Workflow
-
-- `main` — stable, deployable branch.
-- `develop` — integration branch where feature branches merge.
-- `feature/*` — one branch per feature or task, branched from `develop`.
-
-```bash
-git switch develop
-git pull origin develop
+git switch main
+git pull origin main
 git switch -c feature/your-feature-name
+# ... work, commit ...
+git push -u origin feature/your-feature-name
 ```
 
-## 25. Pull Request Workflow
+Open a PR targeting `main`. Before requesting review:
 
-1. Push your feature branch:
-   ```bash
-   git push -u origin feature/your-feature-name
-   ```
-2. Open a pull request targeting `develop` (not `main`).
-3. Make sure `npm run lint` and `npm run build` both pass before requesting
-   review.
-4. Get at least one teammate's review/approval before merging.
-5. Prefer a small, focused PR over one that bundles unrelated changes.
+```bash
+npm run lint && npm run build              # frontend
+cd backend && npm run lint && npm test && npm run build   # backend
+```
 
-## 26. Features Not Implemented Yet
+Get at least one teammate's review before merging. Prefer a small, focused
+PR over one that bundles unrelated changes. Do not merge directly into
+`main` without review.
 
-By design, none of the following exist in this repository yet:
+## 21. What Currently Works
 
-- Real GitHub OAuth or GitHub API calls
-- Any AWS services (Lambda, API Gateway, Step Functions, Secrets Manager)
-- CockroachDB or any real database
-- Amazon Bedrock or any real AI/test-generation
-- Real authentication or authorization
-- Real backend APIs or webhooks
-- Real repository indexing or memory building
+- GitHub OAuth sign-in redirect, callback, session issuance, and sign-out
+  (needs a real registered OAuth App to complete an actual GitHub sign-in;
+  the redirect/callback/session/error-handling code itself is fully
+  implemented and unit-tested).
+- Full project CRUD with per-user ownership enforcement, idempotent
+  duplicate-repository handling, and consistent error responses (needs a
+  reachable CockroachDB to persist anything).
+- Frontend: real auth-aware Navbar/Landing page, Projects page (loading /
+  empty / error / unauthenticated / no-search-result states), full 5-step
+  Connect Repository flow against the real API, and a Project Workspace
+  page with working Settings (rename, change default branch/test
+  framework, disconnect/delete) wired to the real update/delete endpoints.
+- An explicit offline mock mode (`VITE_API_MODE=mock`) for frontend-only
+  demos with zero backend/database — never silently mixed with real data.
+- 63 backend tests (`node:test`, no added test framework) covering
+  validation, ownership enforcement, duplicate handling, not-found,
+  unauthenticated requests, error-response shape, the secrets abstraction,
+  and mocked GitHub API behavior.
 
-Every "connected" repository, project, pull request, memory entry, and
-generated test currently on screen is mock data.
+## 22. What Requires Real Cloud Credentials
 
-## 27. Backend Prototypes (`backend/`)
+- **A real GitHub OAuth App** (`GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`) —
+  without one, `/auth/github/login` redirects to GitHub but GitHub will
+  reject the request.
+- **A reachable CockroachDB** (`DATABASE_URL`) with
+  `database/migrations/*.sql` applied — without one, every endpoint that
+  reads/writes `users`/`projects` fails when it reaches the database call
+  (auth's redirect steps and every unauthenticated-request 401 response
+  still work fine without it, since those don't touch the database).
+- **A real AWS account** — only if `SECRETS_PROVIDER=aws`; the default
+  `SECRETS_PROVIDER=local` needs no AWS account at all for local
+  development (see the tradeoffs in `docs/AUTH_FLOW.md`).
 
-The `backend/` folder holds a standalone Node.js prototype for choosing and
-testing a Bedrock embedding model, used to design the "Similar Examples"
-panel on the PR detail page (`src/components/prs/SimilarExamplesPanel.jsx`,
-currently backed by mock data in `src/data/similarExamples.js`). It is not
-wired into the frontend and has its own `npm install`/setup — see
-[`backend/README.md`](backend/README.md) for the model choice, AWS
-prerequisites, and how to run it.
+None of the above were available in the environment this change was built
+in — everything not requiring them was exercised directly (see
+`docs/TEAM_HANDOFF.md` for the exact list of what was and wasn't run).
 
-## 28. Future Roadmap
+## 23. What Is Waiting on Han
 
-- Wire `src/services/api.js` up to real REST endpoints backed by API
-  Gateway + Lambda.
-- Implement real GitHub OAuth and repository access permissions.
-- Build the repository-memory indexing pipeline (CockroachDB + vector
-  embeddings).
-- Integrate Amazon Bedrock (Claude) for actual test generation.
-- Add authentication, authorization, and secrets management.
-- Replace mock sync/status data with real webhook-driven updates.
+GitHub OAuth scope finalization, OAuth-App-vs-GitHub-App decision, webhook
+design, and the PR ingestion data contract (which the Project Workspace's
+"Pull Requests" tab is already shaped to receive once it exists). Full
+detail, including exactly what code changes once Han's research lands:
+[`docs/PENDING_INTEGRATIONS.md`](docs/PENDING_INTEGRATIONS.md).
 
-## 29. Security Notes
+## 24. What Is Waiting on Trung
 
-- This frontend prototype does not authenticate users and does not store or
-  transmit real credentials — do not add real tokens, secrets, or `.env`
-  values to this branch.
-- The "Authorize GitHub" step in the Connect Repository flow is a **visual
-  mock only**; it does not perform an OAuth handshake or contact GitHub.
-- When the real backend is introduced, secrets (API keys, GitHub App
-  credentials, etc.) must be managed via AWS Secrets Manager, never
-  committed to the repository or hardcoded in frontend code.
+Memory/embedding schema and retrieval, and the analytics/similar-examples
+panel. `projects.id` (a stable UUID) and a `projects.memory_indexing_enabled`
+toggle already exist for this to build on. Trung's standalone Bedrock
+embedding-model prototype lives at
+[`backend/prototypes/memory-retrieval/`](backend/prototypes/memory-retrieval/README.md)
+(its own `package.json`, not wired into the real app). Full detail:
+[`docs/PENDING_INTEGRATIONS.md`](docs/PENDING_INTEGRATIONS.md).
+
+## 25. Security Notes (Limitations)
+
+This is an MVP-grade design with several explicit, documented shortcuts —
+not oversights:
+
+- **Sessions are a signed HttpOnly cookie, not a server-side session
+  store.** Logout only stops the browser from sending the cookie; it does
+  not revoke a previously-issued cookie value server-side. See
+  `docs/AUTH_FLOW.md`.
+- **OAuth `state` is signed + time-limited (10 min), not single-use.** No
+  nonce-tracking store exists yet to prevent replay within that window.
+- **The signed cookie/state format is signed, not encrypted** — never put
+  anything sensitive in the payload (only a user id).
+- **`COOKIE_SECURE=false` by default** for local HTTP development; must be
+  `true` once served over HTTPS.
+- **The local Secrets Manager provider is in-memory and non-persistent** —
+  never used in a deployed environment; selected via `SECRETS_PROVIDER`.
+- **CORS** is currently permissive to one configured origin with
+  credentials allowed — fine for one known frontend origin, revisit before
+  supporting multiple frontend origins.
+- **No rate limiting** on any endpoint yet.
+
+## 26. Recommended Next Steps
+
+1. Register a real GitHub OAuth App and a CockroachDB instance; run the
+   migrations; do a full end-to-end sign-in test.
+2. Decide and provision `SECRETS_PROVIDER=aws` with the IAM policy in
+   `docs/AUTH_FLOW.md`.
+3. Get Han's scope/App-type decision and update
+   `backend/src/config/github.js` accordingly.
+4. Write the IaC (SAM/Serverless Framework/CDK) for the Lambda + API
+   Gateway deployment described in `docs/API.md`.
+5. Add a single-use nonce store for OAuth `state` and consider a
+   server-side session store, before any real production traffic.
+6. Once Han/Trung's schemas land, wire the Project Workspace's Pull
+   Requests/Memory tabs to real endpoints instead of their current
+   "not connected yet" empty states.
+
+## 27. Frontend Contributor Guide
+
+**Adding a page:** create a file in `src/pages/`, export a default
+functional component, and register it in `src/routes/AppRoutes.jsx` inside
+the `<Route element={<AppLayout />}>` block so it gets the shared navbar/
+footer. Keep the catch-all `<Route path="*" element={<NotFoundPage />} />`
+last.
+
+**Adding a reusable component:**
+- Generic UI with no feature knowledge → `src/components/common/`.
+- App shell pieces (navbar, footer, layout wrappers) → `src/components/layout/`.
+- Feature-specific display components → a folder named for that feature
+  (e.g. `src/components/projects/`, `src/components/repositories/`).
+
+Favor small, focused components with props over configuration objects;
+functional components and Tailwind utility classes only, no CSS modules.
+
+**Adding a new API function:** add it to both `src/services/realApi.js`
+(the real `fetch` call) and `src/services/mockApi.js` (matching mock
+behavior), then re-export it from `src/services/api.js`. Pages should only
+ever import from `src/services/api.js`, never from `realApi.js`/`mockApi.js`
+directly — that's what keeps `VITE_API_MODE` a clean, one-place switch.

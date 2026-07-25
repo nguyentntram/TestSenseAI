@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, FolderGit2, AlertTriangle } from 'lucide-react'
+import { Search, FolderGit2, AlertTriangle, LogIn } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
 import ProjectCard from '../components/projects/ProjectCard.jsx'
-import { getProjects } from '../services/api.js'
+import { getProjects, beginGitHubLogin } from '../services/api.js'
+import { ApiError } from '../services/ApiError.js'
 
 export default function ProjectsPage() {
   const [status, setStatus] = useState('loading')
@@ -23,9 +24,13 @@ export default function ProjectsPage() {
         if (cancelled) return
         setProjects(data)
         setStatus('loaded')
-      } catch {
+      } catch (err) {
         if (cancelled) return
-        setStatus('error')
+        if (err instanceof ApiError && err.status === 401) {
+          setStatus('unauthenticated')
+        } else {
+          setStatus('error')
+        }
       }
     }
 
@@ -42,7 +47,7 @@ export default function ProjectsPage() {
       (project) =>
         project.name.toLowerCase().includes(term) ||
         project.repositoryFullName.toLowerCase().includes(term) ||
-        project.language.toLowerCase().includes(term),
+        (project.language ?? '').toLowerCase().includes(term),
     )
   }, [projects, searchTerm])
 
@@ -83,6 +88,17 @@ export default function ProjectsPage() {
 
       <div className="mt-8">
         {status === 'loading' && <LoadingState label="Loading projects…" />}
+
+        {status === 'unauthenticated' && (
+          <EmptyState
+            icon={LogIn}
+            title="Sign in to see your projects"
+            description="Your projects are tied to your GitHub account. Sign in to load them."
+            action={
+              <Button onClick={() => beginGitHubLogin('/projects')}>Sign in with GitHub</Button>
+            }
+          />
+        )}
 
         {status === 'error' && (
           <EmptyState
