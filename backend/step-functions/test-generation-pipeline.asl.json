@@ -1,0 +1,97 @@
+{
+  "Comment": "TestSense AI: ingest PR → retrieve similar examples → generate tests",
+  "StartAt": "IngestPullRequest",
+  "States": {
+    "IngestPullRequest": {
+      "Type": "Task",
+      "Resource": "${PrRetrievalFunctionArn}",
+      "ResultPath": "$.ingestionResult",
+      "Next": "RetrieveSimilarExamples",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "IngestionFailed"
+        }
+      ]
+    },
+    "RetrieveSimilarExamples": {
+      "Type": "Task",
+      "Resource": "${SimilaritySearchFunctionArn}",
+      "Parameters": {
+        "projectId.$": "$.projectId",
+        "prId.$": "$.prId"
+      },
+      "ResultPath": "$.similarityResult",
+      "Next": "GenerateTests",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "Comment": "Retrieval failure is non-fatal — generate tests with no examples",
+          "ErrorEquals": ["States.ALL"],
+          "Result": { "results": [] },
+          "ResultPath": "$.similarityResult",
+          "Next": "GenerateTests"
+        }
+      ]
+    },
+    "GenerateTests": {
+      "Type": "Task",
+      "Resource": "${GenerateTestsFunctionArn}",
+      "Parameters": {
+        "prId.$": "$.prId",
+        "similarExamples.$": "$.similarityResult.results"
+      },
+      "ResultPath": "$.generationResult",
+      "Next": "PipelineSucceeded",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "PipelineError"
+        }
+      ]
+    },
+    "PipelineSucceeded": {
+      "Type": "Succeed"
+    },
+    "IngestionFailed": {
+      "Type": "Fail",
+      "Error": "IngestionFailed",
+      "Cause": "PR ingestion step failed after retries"
+    },
+    "PipelineError": {
+      "Type": "Fail",
+      "Error": "PipelineError",
+      "Cause": "Test generation pipeline failed"
+    }
+  }
+}

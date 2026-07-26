@@ -261,3 +261,58 @@ export async function saveFeedback({ testId, userId, action, editedCode }) {
 
   return rows[0].id
 }
+
+// ─── Analytics (Anh/Trung) ────────────────────────────────────────────────────
+
+export async function getProjectAnalytics(projectId) {
+  const project = await getProjectById(projectId)
+  if (!project) return null
+
+  const [testsResult, feedbackResult, embeddingsResult] = await Promise.all([
+    query(
+      `SELECT COUNT(*)                                                  AS total,
+              COUNT(CASE WHEN status = 'ready'    THEN 1 END)          AS ready,
+              COUNT(CASE WHEN status = 'draft'    THEN 1 END)          AS draft,
+              COUNT(CASE WHEN status = 'rejected' THEN 1 END)          AS rejected
+       FROM generated_tests WHERE project_id = $1`,
+      [projectId],
+    ),
+    query(
+      `SELECT COUNT(*)                                                  AS total,
+              COUNT(CASE WHEN f.action = 'accept' THEN 1 END)          AS accepted,
+              COUNT(CASE WHEN f.action = 'modify' THEN 1 END)          AS modified,
+              COUNT(CASE WHEN f.action = 'reject' THEN 1 END)          AS rejected
+       FROM feedback f
+       JOIN generated_tests gt ON gt.id = f.generated_test_id
+       WHERE gt.project_id = $1`,
+      [projectId],
+    ),
+    query(
+      `SELECT COUNT(*) AS count FROM test_embeddings WHERE project_id = $1`,
+      [projectId],
+    ),
+  ])
+
+  const t = testsResult.rows[0]
+  const f = feedbackResult.rows[0]
+  const e = embeddingsResult.rows[0]
+  const feedbackTotal = Number(f.total)
+  const accepted = Number(f.accepted)
+
+  return {
+    testsGenerated: Number(t.total),
+    testsReady: Number(t.ready),
+    testsDraft: Number(t.draft),
+    testsRejected: Number(t.rejected),
+    memoryCount: Number(e.count),
+    feedback: {
+      total: feedbackTotal,
+      accepted,
+      modified: Number(f.modified),
+      rejected: Number(f.rejected),
+      acceptanceRate: feedbackTotal > 0
+        ? `${((accepted / feedbackTotal) * 100).toFixed(1)}%`
+        : '0%',
+    },
+  }
+}
