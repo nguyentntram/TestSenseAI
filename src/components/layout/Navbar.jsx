@@ -24,75 +24,83 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <nav
-        className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8"
-        aria-label="Main"
-      >
+    <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#09090f]/70 backdrop-blur-2xl">
+      <div className="mx-auto flex w-full max-w-6xl items-center px-4 py-3 sm:px-6 lg:px-8" aria-label="Main">
+
+        {/* Left — Logo */}
         <Link
           to="/"
-          className="flex items-center gap-2 rounded-md text-lg font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          className="flex items-center gap-2 text-sm font-semibold text-white focus-visible:outline-none"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
-            <Sparkles size={18} aria-hidden="true" />
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-violet-600">
+            <Sparkles size={14} aria-hidden="true" />
           </span>
-          TestSense AI
+          TestSense<span className="text-white/30 font-normal ml-0.5">AI</span>
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-2">
+        {/* Center — Nav links */}
+        <nav className="hidden sm:flex flex-1 items-center justify-center gap-0.5" aria-label="Main">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
               end={link.to === '/'}
               className={({ isActive }) =>
-                `rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                `px-3.5 py-1.5 text-sm transition-colors rounded-md focus-visible:outline-none ${
+                  isActive ? 'text-white' : 'text-white/40 hover:text-white/80'
                 }`
               }
             >
               {link.label}
             </NavLink>
           ))}
+        </nav>
+
+        {/* Right — Actions */}
+        <div className="ml-auto flex items-center gap-2">
 
           {status === 'signed-in' && (
-            <Link
-              to="/connect-repository"
-              className="ml-2 inline-flex items-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-            >
-              Connect Repository
-            </Link>
-          )}
-
-          {status === 'signed-in' && (
-            <div className="ml-2 flex items-center gap-2 border-l border-slate-200 pl-3">
-              <span className="hidden text-sm text-slate-600 sm:inline">
+            <>
+              <span className="hidden text-sm text-white/30 sm:inline select-none">
                 {user.githubUsername}
               </span>
+              <Link
+                to="/connect-repository"
+                className="rounded-md border border-white/10 bg-white/6 px-3.5 py-1.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                Connect Repo
+              </Link>
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-white/30 transition-colors hover:bg-white/5 hover:text-white/60 focus-visible:outline-none"
               >
-                <LogOut size={14} aria-hidden="true" />
+                <LogOut size={13} aria-hidden="true" />
                 <span className="sr-only sm:not-sr-only">Sign out</span>
               </button>
-            </div>
+            </>
           )}
 
           {status === 'signed-out' && (
-            <button
-              type="button"
-              onClick={handleSignIn}
-              className="ml-2 inline-flex items-center rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-            >
-              Sign in with GitHub
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleSignIn}
+                className="px-3.5 py-1.5 text-sm text-white/40 transition-colors hover:text-white focus-visible:outline-none"
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={handleSignIn}
+                className="rounded-md bg-white px-3.5 py-1.5 text-sm font-medium text-black transition-opacity hover:opacity-90 focus-visible:outline-none"
+              >
+                Get started
+              </button>
+            </>
           )}
         </div>
-      </nav>
+      </div>
     </header>
   )
 }

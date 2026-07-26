@@ -159,3 +159,10 @@ export async function saveFeedback(projectId, testId, { action, editedCode }) {
     { method: 'POST', body: { action, editedCode } },
   )
 }
+
+export async function chatAboutTest(projectId, testId, { message, history = [] }) {
+  return request(
+    `/projects/${encodeURIComponent(projectId)}/generated-tests/${encodeURIComponent(testId)}/chat`,
+    { method: 'POST', body: { message, history } },
+  )
+}

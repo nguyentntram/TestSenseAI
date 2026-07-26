@@ -55,7 +55,7 @@ export default function ProjectsPage() {
     <PageContainer>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Projects</h1>
+          <h1 className="text-2xl font-bold text-white">Projects</h1>
           <p className="mt-1 text-sm text-slate-500">
             Repositories TestSense AI is connected to and building memory for.
           </p>
@@ -72,7 +72,7 @@ export default function ProjectsPage() {
         <div className="relative max-w-sm">
           <Search
             size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600"
             aria-hidden="true"
           />
           <input
@@ -81,7 +81,7 @@ export default function ProjectsPage() {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search by name, repository, or language"
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline focus:outline-2 focus:outline-offset-1 focus:outline-indigo-600"
+            className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/40"
           />
         </div>
       </div>

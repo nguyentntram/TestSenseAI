@@ -1,0 +1,32 @@
+## What's in this PR
+
+Week 1 deliverable for Han's feature slice: PR Ingestion & Analysis.
+
+### New pages
+- **PR List** (`/projects/:id/pull-requests`) — lists all pull requests for a project with filter tabs (All / Open / Merged / Closed), a search bar, and cards showing status, branch, additions/deletions, file count, and Coco's webhook analysis state.
+- **PR Detail** (`/projects/:id/pull-requests/:prId`) — three-tab detail view:
+  - **Changed Files** — file-by-file breakdown with modified/added/deleted badges, +/- line counts, and a proportional diff bar.
+  - **Diff** — syntax-colored unified diff viewer (green additions, red deletions, indigo hunk headers).
+  - **Generated Tests** — tests linked to this PR surfaced from Anh's slice, with a count badge on the tab.
+  - Webhook analysis status banner covering all four states with appropriate icons and copy.
+
+### Supporting changes
+- `AppRoutes.jsx` — two new routes wired up.
+- `ProjectWorkspacePage.jsx` — Pull Requests tab rows are now clickable links to the detail page; added a "View all" button to the list page.
+- `projects.js` — all mock PRs enriched with the fields the real GitHub API will return (branch refs, diff, changedFiles, webhookStatus, labels, etc.).
+- `api.js` — `getPullRequestsByProjectId` and `getPullRequestById` stubs ready to swap for real Lambda calls in Week 2.
+
+### Research doc
+`docs/github-api-research.md` covers everything the team needs before Week 2 backend work starts: OAuth scopes, GitHub App permissions, which webhook actions to handle and which to ignore, the exact payload fields to extract, HMAC-SHA256 signature verification code, the three GitHub API endpoints Han's Lambda will call, rate limit numbers, and the `pull_requests` + `changed_files` table schemas with indexes.
+
+## How to test
+1. Open any project → Pull Requests tab → click a PR row → lands on detail page.
+2. Click "View all" → lands on PR list page; try the filter tabs and search.
+3. On the detail page, switch between the three tabs and check the webhook status banner (PR-207 shows "Analyzing...", PR-93 shows "Failed").
+
+## Notes
+- All data is mock for Week 1; backend swap happens in Week 2.
+- No API keys or secrets touched.
+
+---
+Han Nguyen
