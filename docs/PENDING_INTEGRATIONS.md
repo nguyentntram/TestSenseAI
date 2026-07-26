@@ -1,5 +1,18 @@
 # Pending Integrations
 
+## Resolved in Week 3 (Jul 30 – Aug 5, 2026)
+
+| Item | Owner | Resolution |
+|------|-------|------------|
+| Han #3 — Webhook handling | Han | `webhook-handler` starts Step Functions pipeline; `pr-retrieval` handles retries + large PR truncation |
+| Han #4 — PR list & detail pages | Tram + Han | `GET /projects/:id/pull-requests` and `/:prId` wired into Tram's backend; `PullRequestsTab` fetches real data |
+| Trung #5 — Memory/embedding schema | Trung | `test_embeddings` (migration 005), per-project config (migration 009), incremental ingestion |
+| Trung #6 — Analytics panel | Anh + Trung | `get-analytics` Lambda + `getProjectAnalytics` DB query; acceptance rate surfaced |
+| Anh — Step Functions orchestration | Anh | `test-generation-pipeline.asl.json` ASL + `template.sam.yaml` for SAM deployment |
+| GitHub OAuth scopes | Tram | Stays as `['read:user', 'public_repo']` — PR ingestion uses the stored OAuth token; no additional scopes needed for public repos |
+
+---
+
 Everything in this file is a placeholder, assumption, or configuration point
 left open because it depends on work another team member hasn't finished
 yet. Nothing here is a permanent decision — each item says what's missing,

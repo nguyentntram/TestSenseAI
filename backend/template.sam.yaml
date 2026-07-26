@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: TestSense AI — test generation pipeline (Step Functions + Lambda)
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 300
+    Environment:
+      Variables:
+        DATABASE_URL: !Sub '{{resolve:secretsmanager:${SecretsPrefix}/database-url}}'
+        SECRETS_PREFIX: !Ref SecretsPrefix
+
+Parameters:
+  SecretsPrefix:
+    Type: String
+    Default: testsense-ai/prod
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [prod, staging, dev]
+
+Resources:
+
+  # ── Lambdas ───────────────────────────────────────────────────────────────
+
+  WebhookHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'testsense-ai-${Environment}-webhook-handler'
+      CodeUri: lambdas/webhook-handler/
+      Handler: index.handler
+      Environment:
+        Variables:
+          WEBHOOK_SECRET_ARN: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretsPrefix}/webhook-secret'
+          PIPELINE_STATE_MACHINE_ARN: !Ref TestGenerationPipeline
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretsPrefix}/*'
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt TestGenerationPipeline.Name
+
+  PrRetrievalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'testsense-ai-${Environment}-pr-retrieval'
+      CodeUri: lambdas/pr-retrieval/
+      Handler: index.handler
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretsPrefix}/*'
+
+  SimilaritySearchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'testsense-ai-${Environment}-similarity-search'
+      CodeUri: lambdas/memory/similarity-search/
+      Handler: index.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: 'arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0'
+
+  GenerateTestsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'testsense-ai-${Environment}-generate-tests'
+      CodeUri: lambdas/generation/generate-tests/
+      Handler: index.handler
+      Timeout: 600
+      MemorySize: 1024
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: 'arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-6*'
+
+  GetAnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'testsense-ai-${Environment}-get-analytics'
+      CodeUri: lambdas/analytics/get-analytics/
+      Handler: index.handler
+
+  IngestHistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'testsense-ai-${Environment}-ingest-history'
+      CodeUri: lambdas/memory/ingest-history/
+      Handler: index.handler
+      Timeout: 600
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretsPrefix}/*'
+        - Statement:
+            - Effect: Allow
+              Action: bedrock:InvokeModel
+              Resource: 'arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0'
+
+  # ── Step Functions ────────────────────────────────────────────────────────
+
+  PipelineExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokePipelineLambdas
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !GetAtt PrRetrievalFunction.Arn
+                  - !GetAtt SimilaritySearchFunction.Arn
+                  - !GetAtt GenerateTestsFunction.Arn
+
+  TestGenerationPipeline:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub 'testsense-ai-${Environment}-test-generation'
+      RoleArn: !GetAtt PipelineExecutionRole.Arn
+      DefinitionSubstitutions:
+        PrRetrievalFunctionArn: !GetAtt PrRetrievalFunction.Arn
+        SimilaritySearchFunctionArn: !GetAtt SimilaritySearchFunction.Arn
+        GenerateTestsFunctionArn: !GetAtt GenerateTestsFunction.Arn
+      DefinitionUri: step-functions/test-generation-pipeline.asl.json
+
+Outputs:
+  PipelineStateMachineArn:
+    Description: ARN of the test generation state machine
+    Value: !Ref TestGenerationPipeline
+    Export:
+      Name: !Sub '${AWS::StackName}-PipelineArn'
+  WebhookHandlerFunctionArn:
+    Description: ARN of the webhook handler Lambda (register this in GitHub webhook settings)
+    Value: !GetAtt WebhookHandlerFunction.Arn
