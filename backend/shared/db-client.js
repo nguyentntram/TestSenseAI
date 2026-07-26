@@ -147,6 +147,10 @@ export async function updateWebhookStatus(prId, webhookStatus) {
   )
 }
 
+export async function storePrDiff(prId, diff) {
+  await query(`UPDATE pull_requests SET diff_text = $1 WHERE id = $2`, [diff, prId])
+}
+
 // ─── Changed Files ────────────────────────────────────────────────────────────
 
 export async function upsertChangedFiles(prId, files) {
