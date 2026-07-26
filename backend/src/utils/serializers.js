@@ -12,6 +12,24 @@ export function toUserDto(row) {
   }
 }
 
+export function toPullRequestDto(row) {
+  return {
+    id: row.id,
+    number: row.number,
+    title: row.title,
+    author: row.author,
+    status: row.status,
+    headBranch: row.head_branch,
+    baseBranch: row.base_branch,
+    additions: row.additions ?? 0,
+    deletions: row.deletions ?? 0,
+    commitsCount: row.commits_count ?? 0,
+    webhookStatus: row.webhook_status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export function toProjectDto(row) {
   return {
     id: row.id,

@@ -8,6 +8,8 @@ import { handler as createProjectHandler } from '../handlers/projects/createProj
 import { handler as getProjectHandler } from '../handlers/projects/getProject.js'
 import { handler as updateProjectHandler } from '../handlers/projects/updateProject.js'
 import { handler as deleteProjectHandler } from '../handlers/projects/deleteProject.js'
+import { handler as listPullRequestsHandler } from '../handlers/pullRequests/listPullRequests.js'
+import { handler as getPullRequestHandler } from '../handlers/pullRequests/getPullRequest.js'
 
 // One route table drives both the local dev server (src/localServer.js) and
 // the deployed Lambda entrypoint (src/index.js). In a real API Gateway REST
@@ -26,4 +28,7 @@ export const routes = [
   { method: 'GET', path: '/projects/:projectId', handler: getProjectHandler },
   { method: 'PATCH', path: '/projects/:projectId', handler: updateProjectHandler },
   { method: 'DELETE', path: '/projects/:projectId', handler: deleteProjectHandler },
+
+  { method: 'GET', path: '/projects/:projectId/pull-requests', handler: listPullRequestsHandler },
+  { method: 'GET', path: '/projects/:projectId/pull-requests/:prId', handler: getPullRequestHandler },
 ]
