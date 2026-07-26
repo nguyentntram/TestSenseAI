@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from 'crypto'
-import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { getSecret } from '../../shared/secrets-manager.js'
 import { upsertPullRequest, updateWebhookStatus } from '../../shared/db-client.js'
 
-const lambdaClient = new LambdaClient({})
+const sfnClient = new SFNClient({})
 const HANDLED_ACTIONS = new Set(['opened', 'synchronize', 'reopened', 'closed'])
 
 function verifySignature(rawBody, signature, secret) {
@@ -68,11 +68,15 @@ export const handler = async (event) => {
 
   if (action !== 'closed') {
     await updateWebhookStatus(prId, 'analyzing')
-    await lambdaClient.send(new InvokeCommand({
-      FunctionName: process.env.PR_RETRIEVAL_FUNCTION_NAME,
-      InvocationType: 'Event',
-      Payload: Buffer.from(JSON.stringify({ prId, projectId, prNumber: pr.number, repositoryFullName: repository.full_name })),
+
+    // Start the full pipeline: ingest → retrieve similar → generate tests
+    const executionName = `pr-${String(projectId).slice(0, 8)}-${pr.number}-${Date.now()}`
+    await sfnClient.send(new StartExecutionCommand({
+      stateMachineArn: process.env.PIPELINE_STATE_MACHINE_ARN,
+      name: executionName,
+      input: JSON.stringify({ prId, projectId, prNumber: pr.number, repositoryFullName: repository.full_name }),
     }))
+    console.log(`Started pipeline execution ${executionName} for PR #${pr.number}`)
   }
 
   return res(200, { message: 'Webhook processed', prId, action })
