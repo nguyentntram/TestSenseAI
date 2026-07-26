@@ -14,11 +14,6 @@ function delay(ms = MOCK_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// Mutable in-memory copies so createProject/updateProject/deleteProject can
-// demonstrate real CRUD behavior without a backend. Resets on page reload.
-let mockProjects = seedProjects.map((project) => ({ ...project }))
-let mockCurrentUser = null
-
 const DEMO_USER = {
   id: 'demo-user',
   githubUsername: 'demo-user',
@@ -26,6 +21,11 @@ const DEMO_USER = {
   avatarUrl: null,
   createdAt: new Date().toISOString(),
 }
+
+// Mutable in-memory copies so createProject/updateProject/deleteProject can
+// demonstrate real CRUD behavior without a backend. Resets on page reload.
+let mockProjects = seedProjects.map((project) => ({ ...project }))
+let mockCurrentUser = null
 
 export async function beginGitHubLogin() {
   // No real OAuth in mock mode — signs in as a canned demo user instead of

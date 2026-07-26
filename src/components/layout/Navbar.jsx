@@ -1,4 +1,4 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Sparkles, LogOut } from 'lucide-react'
 import { useCurrentUser } from '../../hooks/useCurrentUser.js'
 import { beginGitHubLogin, logout } from '../../services/api.js'
@@ -10,11 +10,15 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, status, refresh } = useCurrentUser()
 
   async function handleSignIn() {
-    await beginGitHubLogin('/projects')
-    refresh()
+    await beginGitHubLogin()
+    await refresh()
+    // Redirect back to wherever AuthGuard intercepted them, or /projects by default
+    const destination = location.state?.from?.pathname ?? '/projects'
+    navigate(destination)
   }
 
   async function handleSignOut() {
