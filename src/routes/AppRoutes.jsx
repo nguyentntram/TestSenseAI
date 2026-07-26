@@ -1,5 +1,6 @@
 import { Routes, Route, useParams } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout.jsx'
+import AuthGuard from '../components/auth/AuthGuard.jsx'
 import LandingPage from '../pages/LandingPage.jsx'
 import ProjectsPage from '../pages/ProjectsPage.jsx'
 import ConnectRepositoryPage from '../pages/ConnectRepositoryPage.jsx'
@@ -23,20 +24,45 @@ export default function AppRoutes() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/connect-repository" element={<ConnectRepositoryPage />} />
-        <Route path="/projects/:projectId" element={<ProjectWorkspaceRoute />} />
+
+        <Route
+          path="/projects"
+          element={<AuthGuard><ProjectsPage /></AuthGuard>}
+        />
+        <Route
+          path="/connect-repository"
+          element={<AuthGuard><ConnectRepositoryPage /></AuthGuard>}
+        />
+        <Route
+          path="/projects/:projectId"
+          element={<AuthGuard><ProjectWorkspaceRoute /></AuthGuard>}
+        />
 
         {/* Han — PR Ingestion & Analysis */}
-        <Route path="/projects/:projectId/pull-requests" element={<PRListPage />} />
-        <Route path="/projects/:projectId/pull-requests/:prId" element={<PRDetailPage />} />
+        <Route
+          path="/projects/:projectId/pull-requests"
+          element={<AuthGuard><PRListPage /></AuthGuard>}
+        />
+        <Route
+          path="/projects/:projectId/pull-requests/:prId"
+          element={<AuthGuard><PRDetailPage /></AuthGuard>}
+        />
 
         {/* Anh — Test Generation & Feedback */}
-        <Route path="/projects/:projectId/generated-tests" element={<GeneratedTestsPage />} />
-        <Route path="/projects/:projectId/generated-tests/:testId" element={<TestDetailPage />} />
+        <Route
+          path="/projects/:projectId/generated-tests"
+          element={<AuthGuard><GeneratedTestsPage /></AuthGuard>}
+        />
+        <Route
+          path="/projects/:projectId/generated-tests/:testId"
+          element={<AuthGuard><TestDetailPage /></AuthGuard>}
+        />
 
         {/* Trung — Memory & Retrieval */}
-        <Route path="/projects/:projectId/analytics" element={<AnalyticsPage />} />
+        <Route
+          path="/projects/:projectId/analytics"
+          element={<AuthGuard><AnalyticsPage /></AuthGuard>}
+        />
 
         <Route path="*" element={<NotFoundPage />} />
       </Route>

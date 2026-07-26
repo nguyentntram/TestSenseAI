@@ -21,6 +21,7 @@ import {
   updateProject,
   deleteProject,
   beginGitHubLogin,
+  getPullRequestsByProjectId,
 } from '../services/api.js'
 import { ApiError } from '../services/ApiError.js'
 import { formatRelativeTime } from '../utils/format.js'
@@ -269,17 +270,33 @@ function MetricCard({ icon: Icon, label, value }) {
 
 const PR_STATUS_TONE = { open: 'info', merged: 'success', closed: 'neutral' }
 
-// `project.pullRequests` only exists in the mock dataset today — real PR
-// ingestion is Han's assigned work and isn't wired up yet (see
-// docs/PENDING_INTEGRATIONS.md). Treat "undefined" the same as "empty".
 function PullRequestsTab({ project }) {
-  const pullRequests = project.pullRequests ?? []
+  const [pullRequests, setPullRequests] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  if (pullRequests.length === 0) {
+  useEffect(() => {
+    let cancelled = false
+    getPullRequestsByProjectId(project.id)
+      .then((data) => {
+        if (cancelled) return
+        setPullRequests(data ?? [])
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPullRequests([])
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [project.id])
+
+  if (loading) return <LoadingState label="Loading pull requests…" />
+
+  if (!pullRequests.length) {
     return (
       <EmptyState
-        title="Pull request data isn't connected yet"
-        description="PR ingestion is being built separately. Once it's wired up, pull requests analyzed for this project will show up here."
+        title="No pull requests yet"
+        description="Pull requests will appear here once the webhook is connected and a PR is opened in the repository."
       />
     )
   }
@@ -301,10 +318,10 @@ function PullRequestsTab({ project }) {
             >
               <div>
                 <p className="text-sm font-medium text-slate-900">
-                  {pr.id} — {pr.title}
+                  #{pr.number ?? pr.id} — {pr.title}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  by {pr.author} · updated {formatRelativeTime(pr.updatedAt)}
+                  by {pr.author} · updated {formatRelativeTime(pr.updatedAt ?? pr.updated_at)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
