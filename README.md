@@ -2,6 +2,8 @@
 
 An AI-powered test generation assistant that connects to a GitHub repository, learns from its historical tests and pull requests, and automatically generates context-aware unit and integration tests for new PRs — using that repo's own conventions and edge cases as context, not generic patterns.
 
+<img width="930" height="443" alt="image" src="https://github.com/user-attachments/assets/452d7ef8-8631-4ebc-93cd-eb145ae8ed1a" />
+
 ---
 
 ## Tech Stack
