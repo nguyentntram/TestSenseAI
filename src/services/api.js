@@ -34,3 +34,4 @@ export const getAnalyticsByProjectId = impl.getAnalyticsByProjectId
 export const getGeneratedTestsByProjectId = impl.getGeneratedTestsByProjectId
 export const getGeneratedTestById = impl.getGeneratedTestById
 export const saveFeedback = impl.saveFeedback
+export const chatAboutTest = impl.chatAboutTest

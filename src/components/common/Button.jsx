@@ -1,12 +1,12 @@
 const VARIANT_CLASSES = {
   primary:
-    'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:outline-indigo-600',
+    'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-900/40 hover:opacity-90 focus-visible:outline-indigo-500',
   secondary:
-    'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus-visible:outline-indigo-600',
+    'bg-white/8 text-slate-200 border border-white/10 hover:bg-white/12 hover:border-white/20 focus-visible:outline-indigo-500',
   ghost:
-    'bg-transparent text-slate-600 hover:bg-slate-100 focus-visible:outline-indigo-600',
+    'bg-transparent text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-indigo-500',
   danger:
-    'bg-white text-red-600 border border-red-200 hover:bg-red-50 focus-visible:outline-red-600',
+    'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/15 hover:border-red-500/30 focus-visible:outline-red-500',
 }
 
 const SIZE_CLASSES = {
@@ -27,8 +27,8 @@ export default function Button({
   return (
     <Component
       className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium
-        transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
-        disabled:cursor-not-allowed disabled:opacity-50
+        transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+        disabled:cursor-not-allowed disabled:opacity-40
         ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       disabled={Component === 'button' ? disabled : undefined}
       aria-disabled={Component !== 'button' ? disabled : undefined}

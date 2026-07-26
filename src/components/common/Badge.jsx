@@ -1,9 +1,9 @@
 const TONE_CLASSES = {
-  neutral: 'bg-slate-100 text-slate-700',
-  success: 'bg-emerald-100 text-emerald-700',
-  warning: 'bg-amber-100 text-amber-700',
-  error: 'bg-red-100 text-red-700',
-  info: 'bg-indigo-100 text-indigo-700',
+  neutral: 'bg-white/8 text-slate-300',
+  success: 'bg-emerald-500/15 text-emerald-400',
+  warning: 'bg-amber-500/15 text-amber-400',
+  error: 'bg-red-500/15 text-red-400',
+  info: 'bg-indigo-500/15 text-indigo-400',
 }
 
 export default function Badge({ tone = 'neutral', className = '', children }) {
