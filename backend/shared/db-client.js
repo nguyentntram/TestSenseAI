@@ -195,7 +195,29 @@ export async function searchSimilarEmbeddings(projectId, queryEmbedding, topK = 
   return rows
 }
 
-// ─── Generated Tests (Anh) ────────────────────────────────────────────────────
+// ─── Retrieval Config (Trung) ─────────────────────────────────────────────────
+
+export async function getRetrievalConfig(projectId) {
+  const { rows } = await query(
+    `SELECT retrieval_top_k, retrieval_min_similarity FROM projects WHERE id = $1`,
+    [projectId],
+  )
+  if (!rows[0]) return { topK: 5, minSimilarity: 0.5 }
+  return {
+    topK: rows[0].retrieval_top_k ?? 5,
+    minSimilarity: parseFloat(rows[0].retrieval_min_similarity ?? '0.5'),
+  }
+}
+
+export async function getIndexedSourceRefs(projectId) {
+  const { rows } = await query(
+    `SELECT source_ref FROM test_embeddings WHERE project_id = $1`,
+    [projectId],
+  )
+  return new Set(rows.map(r => r.source_ref))
+}
+
+// ─── Generated Tests (Anh) ──────────────────────��─────────────────────────────
 
 export async function insertGeneratedTest({ prId, projectId, title, testCode, reasoning, status }) {
   const { rows } = await query(

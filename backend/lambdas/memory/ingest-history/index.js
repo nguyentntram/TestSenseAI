@@ -1,6 +1,6 @@
 import { getSecretJson } from '../../../shared/secrets-manager.js'
 import { GitHubClient } from '../../../shared/github-client.js'
-import { getProjectById, insertTestEmbedding, updateProjectSyncStatus } from '../../../shared/db-client.js'
+import { getProjectById, insertTestEmbedding, updateProjectSyncStatus, getIndexedSourceRefs } from '../../../shared/db-client.js'
 import { generateEmbedding } from '../../../shared/bedrock-client.js'
 
 const MAX_PRS_PER_RUN = 50  // Limit per invocation to stay within Lambda timeout
@@ -22,10 +22,14 @@ export const handler = async (event) => {
   const mergedPRs = await github.listMergedPRs(owner, repo, { perPage: MAX_PRS_PER_RUN, page })
   const actuallyMerged = mergedPRs.filter((pr) => pr.merged_at !== null)
 
-  console.log(`Ingesting ${actuallyMerged.length} merged PRs (page ${page}) for ${project.repository_full_name}`)
+  // Incremental ingestion — skip PRs already in test_embeddings
+  const alreadyIndexed = await getIndexedSourceRefs(projectId)
+  const toIngest = actuallyMerged.filter(pr => !alreadyIndexed.has(`PR-${pr.number}`))
+
+  console.log(`Page ${page}: ${toIngest.length} new PRs to ingest (${actuallyMerged.length - toIngest.length} already indexed) for ${project.repository_full_name}`)
 
   let ingested = 0
-  for (const pr of actuallyMerged) {
+  for (const pr of toIngest) {
     try {
       // Fetch the changed files to build a rich text representation for embedding
       const files = await github.getPullRequestFiles(owner, repo, pr.number)
