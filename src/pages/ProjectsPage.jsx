@@ -6,10 +6,12 @@ import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
 import ProjectCard from '../components/projects/ProjectCard.jsx'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import { getProjects, beginGitHubLogin } from '../services/api.js'
 import { ApiError } from '../services/ApiError.js'
 
 export default function ProjectsPage() {
+  usePageTitle('Projects')
   const [status, setStatus] = useState('loading')
   const [projects, setProjects] = useState([])
   const [searchTerm, setSearchTerm] = useState('')

@@ -3,6 +3,7 @@ import { GitBranch, Database, FlaskConical, Check, X, AlertTriangle, ArrowRight,
 import Button from '../components/common/Button.jsx'
 import PageContainer from '../components/common/PageContainer.jsx'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import { beginGitHubLogin } from '../services/api.js'
 
 const STEPS = [
@@ -78,6 +79,7 @@ describe('PaymentService.retryOnFailure', () => {
 })`
 
 export default function LandingPage() {
+  usePageTitle()
   const { status } = useCurrentUser()
   const [searchParams] = useSearchParams()
   const authError = searchParams.get('auth_error')

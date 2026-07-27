@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import {
   ArrowRight, GitPullRequest, GitBranch, GitCommitHorizontal,
   FileDiff, FlaskConical, CheckCircle, XCircle, Clock, Loader, Plus, Minus, FileCode,
@@ -27,6 +28,7 @@ export default function PRDetailPage() {
   const [project, setProject] = useState(null)
   const [pr, setPr] = useState(null)
   const [activeTab, setActiveTab] = useState('Changed Files')
+  usePageTitle(pr ? `${pr.title}` : null)
 
   useEffect(() => {
     let cancelled = false

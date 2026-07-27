@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { FlaskConical, ArrowRight, Search, CheckCircle, Clock, XCircle } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Badge from '../components/common/Badge.jsx'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
@@ -20,6 +21,7 @@ export default function GeneratedTestsPage() {
   const [tests, setTests] = useState([])
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
+  usePageTitle(project ? `Generated Tests — ${project.name}` : null)
 
   useEffect(() => {
     let cancelled = false
