@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowRight, Database, TrendingUp, Target, Layers, Search } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Badge from '../components/common/Badge.jsx'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
@@ -14,6 +15,7 @@ export default function AnalyticsPage() {
   const [pageStatus, setPageStatus] = useState('loading')
   const [project, setProject] = useState(null)
   const [analytics, setAnalytics] = useState(null)
+  usePageTitle(project ? `Memory & Analytics — ${project.name}` : null)
 
   useEffect(() => {
     let cancelled = false

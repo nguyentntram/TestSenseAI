@@ -24,6 +24,7 @@ import {
 } from '../services/api.js'
 import { ApiError } from '../services/ApiError.js'
 import { formatRelativeTime } from '../utils/format.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 
 const SYNC_STATUS_TONE = {
   pending: 'neutral',
@@ -49,6 +50,7 @@ export default function ProjectWorkspacePage() {
   const [status, setStatus] = useState('loading')
   const [project, setProject] = useState(null)
   const [activeTab, setActiveTab] = useState('Overview')
+  usePageTitle(project?.name ?? null)
 
   useEffect(() => {
     let cancelled = false

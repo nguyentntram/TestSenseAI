@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2, AlertTriangle } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Button from '../components/common/Button.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import EmptyState from '../components/common/EmptyState.jsx'
 import StepIndicator from '../components/common/StepIndicator.jsx'
 import RepositoryCard from '../components/repositories/RepositoryCard.jsx'
@@ -17,6 +18,7 @@ const INPUT_CLASS = 'mt-1 w-full rounded-lg border border-white/10 bg-white/5 px
 const LABEL_CLASS = 'block text-sm font-medium text-slate-400'
 
 export default function ConnectRepositoryPage() {
+  usePageTitle('Connect Repository')
   const navigate = useNavigate()
   const { user, status: authStatus } = useCurrentUser()
 

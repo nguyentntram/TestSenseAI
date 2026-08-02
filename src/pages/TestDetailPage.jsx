@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import {
   ArrowRight,
   FlaskConical,
@@ -34,6 +35,7 @@ export default function TestDetailPage() {
   const [pageStatus, setPageStatus] = useState('loading')
   const [project, setProject] = useState(null)
   const [test, setTest] = useState(null)
+  usePageTitle(test ? test.title : null)
   const [copySuccess, setCopySuccess] = useState(false)
   const [feedbackGiven, setFeedbackGiven] = useState(null)
   const [chatMessages, setChatMessages] = useState([])
