@@ -221,7 +221,7 @@ export async function getIndexedSourceRefs(projectId) {
   return new Set(rows.map(r => r.source_ref))
 }
 
-// ─── Generated Tests (Anh) ──────────────────────��─────────────────────────────
+// ─── Generated Tests (Anh) ───────────────────────────────────────────────────
 
 export async function insertGeneratedTest({ prId, projectId, title, testCode, reasoning, status }) {
   const { rows } = await query(
@@ -239,6 +239,31 @@ export async function getGeneratedTestsByPrId(prId) {
     [prId],
   )
   return rows
+}
+
+export async function getGeneratedTestsByProjectId(projectId) {
+  const { rows } = await query(
+    `SELECT gt.id, gt.title, gt.status, gt.reasoning, gt.test_code, gt.created_at,
+            pr.id AS pull_request_id, pr.number AS pr_number
+     FROM generated_tests gt
+     JOIN pull_requests pr ON pr.id = gt.pull_request_id
+     WHERE gt.project_id = $1
+     ORDER BY gt.created_at DESC`,
+    [projectId],
+  )
+  return rows
+}
+
+export async function getGeneratedTestById(testId, projectId) {
+  const { rows } = await query(
+    `SELECT gt.id, gt.title, gt.status, gt.reasoning, gt.test_code, gt.created_at,
+            pr.id AS pull_request_id, pr.number AS pr_number
+     FROM generated_tests gt
+     JOIN pull_requests pr ON pr.id = gt.pull_request_id
+     WHERE gt.id = $1 AND gt.project_id = $2`,
+    [testId, projectId],
+  )
+  return rows[0] ?? null
 }
 
 // ─── Feedback (Anh) ───────────────────────────────────────────────────────────
@@ -260,6 +285,20 @@ export async function saveFeedback({ testId, userId, action, editedCode }) {
   }
 
   return rows[0].id
+}
+
+// ─── Memory Entries (Trung) ───────────────────────────────────────────────────
+
+export async function getMemoryEntriesByProjectId(projectId) {
+  const { rows } = await query(
+    `SELECT id, source_ref, metadata, created_at
+     FROM test_embeddings
+     WHERE project_id = $1
+     ORDER BY created_at DESC
+     LIMIT 20`,
+    [projectId],
+  )
+  return rows
 }
 
 // ─── Analytics (Anh/Trung) ────────────────────────────────────────────────────

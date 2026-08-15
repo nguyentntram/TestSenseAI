@@ -1,6 +1,6 @@
-import { getSecretJson } from '../../../shared/secrets-manager.js'
+import { getGitHubToken } from '../../../src/services/secrets/secretsService.js'
 import { GitHubClient } from '../../../shared/github-client.js'
-import { getProjectById, insertTestEmbedding, updateProjectSyncStatus, getIndexedSourceRefs } from '../../../shared/db-client.js'
+import { getProjectById, getUserById, insertTestEmbedding, updateProjectSyncStatus, getIndexedSourceRefs } from '../../../shared/db-client.js'
 import { generateEmbedding } from '../../../shared/bedrock-client.js'
 
 const MAX_PRS_PER_RUN = 50  // Limit per invocation to stay within Lambda timeout
@@ -13,10 +13,13 @@ export const handler = async (event) => {
 
   await updateProjectSyncStatus(projectId, 'syncing')
 
-  const { access_token } = await getSecretJson(
-    `${process.env.SECRETS_PREFIX}/projects/${projectId}/oauth-token`,
-  )
-  const github = new GitHubClient(access_token)
+  const user = await getUserById(project.user_id)
+  if (!user) throw new Error(`User ${project.user_id} not found`)
+  const accessToken = await getGitHubToken(user.oauth_secret_reference)
+  if (!accessToken) {
+    throw new Error('GitHub authorization is missing or has expired for this project\'s owner.')
+  }
+  const github = new GitHubClient(accessToken)
   const [owner, repo] = project.repository_full_name.split('/')
 
   const mergedPRs = await github.listMergedPRs(owner, repo, { perPage: MAX_PRS_PER_RUN, page })

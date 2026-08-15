@@ -6,7 +6,7 @@
 import { getPool } from '../config/db.js'
 
 export async function findUserByGithubUserId(githubUserId, db = getPool()) {
-  const result = await db.query('SELECT * FROM users WHERE github_user_id = $1', [githubUserId])
+  const result = await db.query('SELECT * FROM users WHERE github_id = $1', [githubUserId])
   return result.rows[0] ?? null
 }
 
@@ -20,7 +20,7 @@ export async function createUser(
   db = getPool(),
 ) {
   const result = await db.query(
-    `INSERT INTO users (github_user_id, github_username, github_email, avatar_url, oauth_secret_reference)
+    `INSERT INTO users (github_id, login, email, avatar_url, oauth_secret_reference)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
     [githubUserId, githubUsername, githubEmail ?? null, avatarUrl ?? null, oauthSecretReference],
@@ -35,8 +35,8 @@ export async function updateUserProfile(
 ) {
   const result = await db.query(
     `UPDATE users
-     SET github_username = $2,
-         github_email = $3,
+     SET login = $2,
+         email = $3,
          avatar_url = $4,
          oauth_secret_reference = $5,
          updated_at = now()

@@ -51,7 +51,7 @@ export const handler = async (event) => {
     topSimilarity: similarities[0]?.toFixed(3) ?? null,
   }))
 
-  return res(200, {
+  const payload = {
     projectId,
     results: filtered.map(r => ({
       id: r.id,
@@ -61,7 +61,10 @@ export const handler = async (event) => {
       metadata: r.metadata,
     })),
     meta: { topK, minSimilarity, rawCount: raw.length, filteredCount: filtered.length },
-  })
+  }
+  // Step Functions invocations have no httpMethod; return raw object so the
+  // ASL can reference $.similarityResult.results directly without JSON parsing.
+  return event.httpMethod ? res(200, payload) : payload
 }
 
 function res(statusCode, body) {

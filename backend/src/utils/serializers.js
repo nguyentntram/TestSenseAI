@@ -5,8 +5,8 @@
 export function toUserDto(row) {
   return {
     id: row.id,
-    githubUsername: row.github_username,
-    githubEmail: row.github_email,
+    githubUsername: row.login,
+    githubEmail: row.email,
     avatarUrl: row.avatar_url,
     createdAt: row.created_at,
   }
@@ -27,6 +27,30 @@ export function toPullRequestDto(row) {
     webhookStatus: row.webhook_status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  }
+}
+
+export function toGeneratedTestDto(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    reasoning: row.reasoning,
+    testCode: row.test_code,
+    linkedPrId: row.pull_request_id,
+    linkedPr: `PR-${row.pr_number}`,
+    generatedAt: row.created_at,
+  }
+}
+
+export function toMemoryEntryDto(row) {
+  const meta = row.metadata ?? {}
+  return {
+    id: row.id,
+    type: 'pr',
+    summary: meta.prTitle ?? row.source_ref,
+    source: row.source_ref,
+    indexedAt: row.created_at,
   }
 }
 

@@ -10,6 +10,11 @@ import { handler as updateProjectHandler } from '../handlers/projects/updateProj
 import { handler as deleteProjectHandler } from '../handlers/projects/deleteProject.js'
 import { handler as listPullRequestsHandler } from '../handlers/pullRequests/listPullRequests.js'
 import { handler as getPullRequestHandler } from '../handlers/pullRequests/getPullRequest.js'
+import { handler as getAnalyticsHandler } from '../handlers/analytics/getAnalytics.js'
+import { handler as listGeneratedTestsHandler } from '../handlers/generatedTests/listGeneratedTests.js'
+import { handler as getGeneratedTestHandler } from '../handlers/generatedTests/getGeneratedTest.js'
+import { handler as submitFeedbackHandler } from '../handlers/generatedTests/submitFeedback.js'
+import { handler as chatAboutTestHandler } from '../handlers/generatedTests/chatAboutTest.js'
 
 // One route table drives both the local dev server (src/localServer.js) and
 // the deployed Lambda entrypoint (src/index.js). In a real API Gateway REST
@@ -31,4 +36,11 @@ export const routes = [
 
   { method: 'GET', path: '/projects/:projectId/pull-requests', handler: listPullRequestsHandler },
   { method: 'GET', path: '/projects/:projectId/pull-requests/:prId', handler: getPullRequestHandler },
+
+  { method: 'GET', path: '/projects/:projectId/analytics', handler: getAnalyticsHandler },
+
+  { method: 'GET', path: '/projects/:projectId/generated-tests', handler: listGeneratedTestsHandler },
+  { method: 'GET', path: '/projects/:projectId/generated-tests/:testId', handler: getGeneratedTestHandler },
+  { method: 'POST', path: '/projects/:projectId/generated-tests/:testId/feedback', handler: submitFeedbackHandler },
+  { method: 'POST', path: '/projects/:projectId/generated-tests/:testId/chat', handler: chatAboutTestHandler },
 ]

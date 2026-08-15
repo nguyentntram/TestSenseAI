@@ -6,11 +6,11 @@ export const BEDROCK_CONFIG = {
   region: process.env.AWS_REGION ?? 'us-east-1',
 
   models: {
-    // Amazon Titan Text Embeddings V2 — 1536-dim vectors, used by Trung's memory pipeline
+    // Amazon Titan Text Embeddings V2 — 1024-dim vectors, used by Trung's memory pipeline
     embedding: process.env.BEDROCK_EMBEDDING_MODEL_ID ?? 'amazon.titan-embed-text-v2:0',
 
     // Claude Sonnet 4.6 — used by Anh's test generation Lambda
-    generation: process.env.BEDROCK_GENERATION_MODEL_ID ?? 'us.anthropic.claude-sonnet-4-6-20251101-v1:0',
+    generation: process.env.BEDROCK_GENERATION_MODEL_ID ?? 'us.anthropic.claude-sonnet-4-6',
   },
 
   // Token limits per call

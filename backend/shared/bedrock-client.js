@@ -49,7 +49,7 @@ async function invokeWithRetry(command) {
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a 1536-dim embedding vector for the given text using Titan V2.
+ * Generate a 1024-dim embedding vector for the given text using Titan V2.
  * Used by Trung's memory ingestion and similarity search Lambdas.
  *
  * @param {string} text

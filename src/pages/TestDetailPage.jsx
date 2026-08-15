@@ -18,7 +18,7 @@ import PageContainer from '../components/common/PageContainer.jsx'
 import Badge from '../components/common/Badge.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
-import { getProjectById, getGeneratedTestById, chatAboutTest } from '../services/api.js'
+import { getProjectById, getGeneratedTestById, chatAboutTest, saveFeedback } from '../services/api.js'
 import { formatRelativeTime } from '../utils/format.js'
 
 const STATUS_TONE = { ready: 'success', draft: 'warning', rejected: 'error' }
@@ -64,8 +64,18 @@ export default function TestDetailPage() {
     setTimeout(() => setCopySuccess(false), 2000)
   }
 
-  function handleFeedback(action) {
-    setFeedbackGiven(action)
+  const UI_TO_API_ACTION = { ready: 'accept', modified: 'modify', rejected: 'reject' }
+
+  async function handleFeedback(displayAction) {
+    setFeedbackGiven(displayAction)
+    const apiAction = UI_TO_API_ACTION[displayAction]
+    if (apiAction) {
+      try {
+        await saveFeedback(projectId, testId, { action: apiAction })
+      } catch (err) {
+        console.error('Failed to save feedback:', err)
+      }
+    }
   }
 
   async function handleChatSend(e) {

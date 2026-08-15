@@ -39,6 +39,12 @@ export default function AnalyticsPage() {
     </PageContainer>
   )
 
+  if (!analytics) return (
+    <PageContainer>
+      <EmptyState title="No analytics yet" description="Connect a repository and run the memory pipeline to start collecting metrics." />
+    </PageContainer>
+  )
+
   return (
     <PageContainer>
       {/* Breadcrumb */}
