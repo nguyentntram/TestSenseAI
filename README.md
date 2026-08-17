@@ -52,42 +52,36 @@ CockroachDB Cloud is the single persistent store the whole pipeline reads and wr
 
 ```mermaid
 flowchart TD
-    GH["GitHub<br/>PR opened / synchronized"] -->|pull_request webhook| APIGW["API Gateway"]
-    APIGW -->|"POST /webhooks/github"| WH["Webhook Handler<br/>verifies HMAC-SHA256"]
-    WH -->|StartExecution| SF["Step Functions"]
-    SF -->|invoke| PRR["PR Retrieval Lambda"]
-    PRR -->|next| SS["Similarity Search Lambda"]
-    SS -->|next| GT["Generate Tests Lambda"]
+    GH[GitHub: PR opened or synchronized] -->|pull_request webhook| APIGW[API Gateway]
+    APIGW -->|POST /webhooks/github| WH[Webhook Handler: verifies HMAC-SHA256]
+    WH -->|StartExecution| SF[Step Functions]
+    SF -->|invoke| PRR[PR Retrieval Lambda]
+    PRR -->|next| SS[Similarity Search Lambda]
+    SS -->|next| GT[Generate Tests Lambda]
 
-    SS -->|"embed diff (Titan V2)"| BR["Amazon Bedrock"]
-    GT -->|"generate (Claude Sonnet 4.6)"| BR
+    SS -->|embed diff via Titan V2| BR[Amazon Bedrock]
+    GT -->|generate via Claude Sonnet 4.6| BR
 
-    subgraph CRDB["CockroachDB Cloud — persistent agent memory (Serverless, AWS us-west-2)"]
-        PRT[("pull_requests<br/>changed_files")]
-        TE[("test_embeddings<br/>C-SPANN vector index<br/>project_id, embedding cosine")]
-        GTT[("generated_tests")]
-        FB[("feedback")]
+    subgraph CRDB [CockroachDB Cloud: persistent agent memory]
+        PRT[(pull_requests / changed_files)]
+        TE[(test_embeddings: C-SPANN vector index)]
+        GTT[(generated_tests)]
+        FB[(feedback)]
     end
 
     PRR -->|writes| PRT
-    SS <-->|"vector search — cosine, C-SPANN index"| TE
+    SS -->|vector search: cosine, C-SPANN index| TE
+    TE -->|top-K similar tests| GT
     GT -->|writes| GTT
 
-    IH["Ingest History Lambda<br/>background · reads merged PRs from GitHub"] -->|"embeds (Titan V2) + writes — memory grows over time"| TE
+    IH[Ingest History Lambda: background] -->|embeds plus writes, memory grows over time| TE
 
-    FE["React Frontend"] -->|"REST via API Gateway"| APIGW
-    APIGW -->|route| SFB["Save Feedback Lambda"]
-    SFB -->|"writes / updates status"| FB
+    FE[React Frontend] -->|REST via API Gateway| APIGW
+    APIGW -->|route| SFB[Save Feedback Lambda]
+    SFB -->|writes, updates status| FB
 
-    CRDB -->|reads counts| GA["Get Analytics Lambda"]
-    GA -->|"GET /analytics"| FE
-
-    classDef crdb fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#065f46;
-    classDef bedrock fill:#fff7ed,stroke:#c2410c,stroke-width:1.5px,color:#9a3412;
-    class PRT,TE,GTT,FB crdb
-    class BR bedrock
-    style CRDB fill:#f0fdfa,stroke:#059669,stroke-width:2px,color:#065f46
-    linkStyle 9 stroke:#059669,stroke-width:3px
+    TE -->|reads counts| GA[Get Analytics Lambda]
+    GA -->|GET /analytics| FE
 ```
 
 ---
