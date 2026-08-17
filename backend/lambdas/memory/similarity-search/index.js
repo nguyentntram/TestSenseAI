@@ -4,6 +4,7 @@ import {
   getRetrievalConfig,
   getPullRequestById,
   getChangedFilesByPrId,
+  insertSimilaritySearchLog,
 } from '../../../shared/db-client.js'
 
 export const handler = async (event) => {
@@ -37,6 +38,7 @@ export const handler = async (event) => {
 
   // Structured quality log — queryable via CloudWatch Logs Insights
   const similarities = raw.map(r => r.similarity)
+  const topSimilarity = similarities[0] ?? null
   console.log(JSON.stringify({
     event: 'similarity_search',
     projectId,
@@ -48,8 +50,19 @@ export const handler = async (event) => {
     avgSimilarity: similarities.length
       ? (similarities.reduce((a, b) => a + b, 0) / similarities.length).toFixed(3)
       : null,
-    topSimilarity: similarities[0]?.toFixed(3) ?? null,
+    topSimilarity: topSimilarity?.toFixed(3) ?? null,
   }))
+
+  // Persisted log — backs the retrievalHits/avgSimilarity analytics fields
+  await insertSimilaritySearchLog({
+    projectId,
+    prId: prId ?? null,
+    topK,
+    minSimilarity,
+    rawCount: raw.length,
+    filteredCount: filtered.length,
+    topSimilarity,
+  })
 
   const payload = {
     projectId,
