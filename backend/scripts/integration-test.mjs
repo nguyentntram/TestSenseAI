@@ -103,10 +103,11 @@ async function run() {
   const analytics = await api(`/projects/${projectId}/analytics`)
   assert(analytics.status === 200 || analytics.status === 404, 'analytics endpoint responds')
   if (analytics.status === 200) {
-    const a = analytics.body?.data?.analytics
-    assert(typeof a?.testsGenerated === 'number', 'analytics.testsGenerated is a number')
-    assert(typeof a?.feedback?.acceptanceRate === 'string', 'analytics.feedback.acceptanceRate is a string')
-    console.log(`  ℹ  testsGenerated=${a?.testsGenerated}, acceptanceRate=${a?.feedback?.acceptanceRate}`)
+    const a = analytics.body?.data
+    assert(typeof a?.memoryCount === 'number', 'analytics.memoryCount is a number')
+    assert(typeof a?.retrievalHits === 'number', 'analytics.retrievalHits is a number')
+    assert(typeof a?.acceptanceRate === 'number', 'analytics.acceptanceRate is a number')
+    console.log(`  ℹ  memoryCount=${a?.memoryCount}, retrievalHits=${a?.retrievalHits}, acceptanceRate=${a?.acceptanceRate}`)
   }
 
   // 7. Project update

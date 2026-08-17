@@ -16,13 +16,13 @@ export const handler = withErrorHandling(async (event) => {
     getMemoryEntriesByProjectId(projectId),
   ])
 
-  const { feedback, memoryCount } = analytics
+  const { feedback, memoryCount, retrievalHits, avgSimilarity } = analytics
   const acceptanceRate = feedback.total > 0 ? feedback.accepted / feedback.total : 0
 
   return successResponse({
     memoryCount,
-    retrievalHits: 0,
-    avgSimilarity: 0,
+    retrievalHits,
+    avgSimilarity: avgSimilarity ?? 0,
     acceptanceRate,
     similarExamples: [],
     memoryEntries: memoryRows.map(toMemoryEntryDto),

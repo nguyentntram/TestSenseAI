@@ -10,8 +10,18 @@ import {
 export const handler = async (event) => {
   const { projectId, queryText: rawQueryText, prId, topK: eventTopK, minSimilarity: eventMinSimilarity } = event
 
+  // Step Functions invocations have no httpMethod (see the success-path
+  // comment below) — failures there must throw so the ASL's Catch handles
+  // them, not return an HTTP-shaped object Step Functions would treat as a
+  // successful result and poison $.similarityResult with.
+  const isHttpInvocation = Boolean(event.httpMethod)
+  function fail(statusCode, message) {
+    if (isHttpInvocation) return res(statusCode, { error: message })
+    throw new Error(message)
+  }
+
   if (!projectId || (!rawQueryText && !prId)) {
-    return res(400, { error: 'projectId and either queryText or prId are required' })
+    return fail(400, 'projectId and either queryText or prId are required')
   }
 
   // Build query text from PR data when called from Step Functions (prId given, no queryText)
@@ -21,7 +31,7 @@ export const handler = async (event) => {
       getPullRequestById(prId),
       getChangedFilesByPrId(prId),
     ])
-    if (!pr) return res(404, { error: `PR ${prId} not found` })
+    if (!pr) return fail(404, `PR ${prId} not found`)
     const filePaths = files.map(f => f.path).join(', ')
     queryText = `${pr.title}\n\nChanged files: ${filePaths}`
   }
@@ -77,7 +87,7 @@ export const handler = async (event) => {
   }
   // Step Functions invocations have no httpMethod; return raw object so the
   // ASL can reference $.similarityResult.results directly without JSON parsing.
-  return event.httpMethod ? res(200, payload) : payload
+  return isHttpInvocation ? res(200, payload) : payload
 }
 
 function res(statusCode, body) {
