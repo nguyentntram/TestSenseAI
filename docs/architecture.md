@@ -2,64 +2,43 @@
 
 ## System Architecture
 
+One CockroachDB Cloud cluster is the single persistent store the whole agent reads and writes — ingestion, cosine-similarity retrieval over a real C-SPANN vector index, generation, and feedback all hit the same tables, with Amazon Bedrock doing the AI work in between.
+
+```mermaid
+flowchart TD
+    GH[GitHub: PR opened or synchronized] -->|pull_request webhook| APIGW[API Gateway]
+    APIGW -->|POST /webhooks/github| WH[Webhook Handler: verifies HMAC-SHA256]
+    WH -->|StartExecution| SF[Step Functions]
+    SF -->|invoke| PRR[PR Retrieval Lambda]
+    PRR -->|next| SS[Similarity Search Lambda]
+    SS -->|next| GT[Generate Tests Lambda]
+
+    SS -->|embed diff via Titan V2| BR[Amazon Bedrock]
+    GT -->|generate via Claude Sonnet 4.6| BR
+
+    subgraph CRDB [CockroachDB Cloud: persistent agent memory]
+        PRT[(pull_requests / changed_files)]
+        TE[(test_embeddings: C-SPANN vector index)]
+        GTT[(generated_tests)]
+        FB[(feedback)]
+    end
+
+    PRR -->|writes| PRT
+    SS -->|vector search: cosine, C-SPANN index| TE
+    TE -->|top-K similar tests| GT
+    GT -->|writes| GTT
+
+    IH[Ingest History Lambda: background] -->|embeds plus writes, memory grows over time| TE
+
+    FE[React Frontend] -->|REST via API Gateway| APIGW
+    APIGW -->|route| SFB[Save Feedback Lambda]
+    SFB -->|writes, updates status| FB
+
+    TE -->|reads counts| GA[Get Analytics Lambda]
+    GA -->|GET /analytics| FE
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          USER BROWSER                                       │
-│                  React + Tailwind SPA (Vite)                                │
-│                                                                             │
-│  Landing → Projects → Connect Repo → PR List → PR Detail → Generated Tests │
-└────────────────────────────┬────────────────────────────────────────────────┘
-                             │ HTTPS (REST)
-                             ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       AWS API GATEWAY                                       │
-│                                                                             │
-│  POST /auth/github/callback      GET  /projects                             │
-│  POST /projects                  GET  /projects/:id/pull-requests           │
-│  GET  /projects/:id              GET  /projects/:id/generated-tests         │
-│  DELETE /projects/:id            POST /projects/:id/memory/search           │
-│  POST /webhooks/github           POST /generated-tests/:id/feedback         │
-└──────┬──────────┬──────────┬──────────┬──────────┬──────────────────────────┘
-       │          │          │          │          │
-       ▼          ▼          ▼          ▼          ▼
-┌──────────┐ ┌─────────┐ ┌───────┐ ┌────────┐ ┌──────────────┐
-│  GitHub  │ │Projects │ │Webhook│ │Memory  │ │  Generation  │
-│  OAuth   │ │  CRUD   │ │Handler│ │Ingest /│ │   Lambda     │
-│ Callback │ │Lambdas  │ │Lambda │ │Search  │ │  (Anh)       │
-│  (Tram)  │ │ (Tram)  │ │ (Han) │ │(Trung) │ │              │
-└────┬─────┘ └────┬────┘ └───┬───┘ └───┬────┘ └──────┬───────┘
-     │            │          │         │              │
-     │            │          ▼         │              │
-     │            │   ┌─────────────┐  │              │
-     │            │   │PR Retrieval │  │              │
-     │            │   │  Lambda     │  │              │
-     │            │   │   (Han)     │  │              │
-     │            │   └─────┬───────┘  │              │
-     │            │         │          │              │
-     └────────────┴─────────┴──────────┴──────────────┘
-                            │ SQL (pg / CockroachDB protocol)
-                            ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COCKROACHDB CLOUD (Serverless)                           │
-│                                                                             │
-│  users · projects · pull_requests · changed_files                          │
-│  test_embeddings (pgvector 1536-dim) · generated_tests · feedback          │
-└─────────────────────────────────────────────────────────────────────────────┘
-                            │
-            ┌───────────────┼───────────────┐
-            ▼               ▼               ▼
-┌─────────────────┐  ┌────────────┐  ┌─────────────────────┐
-│  GITHUB API     │  │   AMAZON   │  │   AWS SECRETS       │
-│                 │  │  BEDROCK   │  │     MANAGER         │
-│ • PR metadata   │  │            │  │                     │
-│ • File diffs    │  │ Titan V2   │  │ • OAuth tokens      │
-│ • Commits       │  │ embeddings │  │ • Webhook secrets   │
-│ • Webhooks      │  │            │  │ • DB credentials    │
-│                 │  │ Claude     │  │                     │
-└─────────────────┘  │ Sonnet 4.6 │  └─────────────────────┘
-                     │ generation │
-                     └────────────┘
-```
+
+No separate vector database, no cache to keep in sync — retrieval, generation, and feedback all hit this one table set. `idx_test_embeddings_vector` (migration [`013`](../backend/db/migrations/013_add_vector_index.sql)) is a real C-SPANN vector index on `(project_id, embedding vector_cosine_ops)`, confirmed via `EXPLAIN` to run as a `vector search` scan rather than a full table scan.
 
 ---
 
@@ -81,7 +60,7 @@
    ─────────────────────────────────────
    On project connect (background):
      → Memory ingest Lambda pages through merged PRs via GitHub API
-       → Each PR diff embedded via Bedrock Titan V2 (1536-dim vector)
+       → Each PR diff embedded via Bedrock Titan V2 (1024-dim vector)
          → Vectors stored in CockroachDB test_embeddings table
            → Project sync_status updated to "synced"
 

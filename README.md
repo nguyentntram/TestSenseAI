@@ -46,6 +46,46 @@ This project uses two CockroachDB Cloud tools as part of the CockroachDB × AWS 
 
 ---
 
+## Architecture
+
+CockroachDB Cloud is the single persistent store the whole pipeline reads and writes — ingestion, cosine-similarity retrieval over a real C-SPANN vector index, generation, and feedback all hit the same tables. Full walkthrough (including the end-to-end user flow) in [`docs/architecture.md`](docs/architecture.md).
+
+```mermaid
+flowchart TD
+    GH[GitHub: PR opened or synchronized] -->|pull_request webhook| APIGW[API Gateway]
+    APIGW -->|POST /webhooks/github| WH[Webhook Handler: verifies HMAC-SHA256]
+    WH -->|StartExecution| SF[Step Functions]
+    SF -->|invoke| PRR[PR Retrieval Lambda]
+    PRR -->|next| SS[Similarity Search Lambda]
+    SS -->|next| GT[Generate Tests Lambda]
+
+    SS -->|embed diff via Titan V2| BR[Amazon Bedrock]
+    GT -->|generate via Claude Sonnet 4.6| BR
+
+    subgraph CRDB [CockroachDB Cloud: persistent agent memory]
+        PRT[(pull_requests / changed_files)]
+        TE[(test_embeddings: C-SPANN vector index)]
+        GTT[(generated_tests)]
+        FB[(feedback)]
+    end
+
+    PRR -->|writes| PRT
+    SS -->|vector search: cosine, C-SPANN index| TE
+    TE -->|top-K similar tests| GT
+    GT -->|writes| GTT
+
+    IH[Ingest History Lambda: background] -->|embeds plus writes, memory grows over time| TE
+
+    FE[React Frontend] -->|REST via API Gateway| APIGW
+    APIGW -->|route| SFB[Save Feedback Lambda]
+    SFB -->|writes, updates status| FB
+
+    TE -->|reads counts| GA[Get Analytics Lambda]
+    GA -->|GET /analytics| FE
+```
+
+---
+
 ## Quick Start
 
 ### Frontend only (mock mode — no backend needed)
