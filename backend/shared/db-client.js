@@ -221,6 +221,15 @@ export async function getIndexedSourceRefs(projectId) {
   return new Set(rows.map(r => r.source_ref))
 }
 
+export async function insertSimilaritySearchLog({ projectId, prId, topK, minSimilarity, rawCount, filteredCount, topSimilarity }) {
+  await query(
+    `INSERT INTO similarity_search_logs
+       (project_id, pull_request_id, top_k, min_similarity, raw_count, filtered_count, top_similarity)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [projectId, prId ?? null, topK, minSimilarity, rawCount, filteredCount, topSimilarity ?? null],
+  )
+}
+
 // ─── Generated Tests (Anh) ───────────────────────────────────────────────────
 
 export async function insertGeneratedTest({ prId, projectId, title, testCode, reasoning, status }) {
@@ -307,7 +316,7 @@ export async function getProjectAnalytics(projectId) {
   const project = await getProjectById(projectId)
   if (!project) return null
 
-  const [testsResult, feedbackResult, embeddingsResult] = await Promise.all([
+  const [testsResult, feedbackResult, embeddingsResult, retrievalResult] = await Promise.all([
     query(
       `SELECT COUNT(*)                                                  AS total,
               COUNT(CASE WHEN status = 'ready'    THEN 1 END)          AS ready,
@@ -330,11 +339,17 @@ export async function getProjectAnalytics(projectId) {
       `SELECT COUNT(*) AS count FROM test_embeddings WHERE project_id = $1`,
       [projectId],
     ),
+    query(
+      `SELECT COUNT(*) AS hits, AVG(top_similarity) AS avg_similarity
+       FROM similarity_search_logs WHERE project_id = $1`,
+      [projectId],
+    ),
   ])
 
   const t = testsResult.rows[0]
   const f = feedbackResult.rows[0]
   const e = embeddingsResult.rows[0]
+  const s = retrievalResult.rows[0]
   const feedbackTotal = Number(f.total)
   const accepted = Number(f.accepted)
 
@@ -344,6 +359,8 @@ export async function getProjectAnalytics(projectId) {
     testsDraft: Number(t.draft),
     testsRejected: Number(t.rejected),
     memoryCount: Number(e.count),
+    retrievalHits: Number(s.hits),
+    avgSimilarity: s.avg_similarity !== null ? Number(Number(s.avg_similarity).toFixed(3)) : null,
     feedback: {
       total: feedbackTotal,
       accepted,
