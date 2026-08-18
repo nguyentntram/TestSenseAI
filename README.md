@@ -4,6 +4,8 @@ An AI-powered test generation assistant that connects to a GitHub repository, le
 
 <img width="930" height="443" alt="image" src="https://github.com/user-attachments/assets/452d7ef8-8631-4ebc-93cd-eb145ae8ed1a" />
 
+**🔗 Live demo: https://d236u4nunq3lu6.cloudfront.net**
+
 ---
 
 ## Tech Stack
@@ -135,19 +137,26 @@ src/                          # Frontend (React + Vite)
 └── utils/                    # format.js
 
 backend/
-├── lambdas/
-│   ├── auth/                 # github-oauth-callback
-│   ├── projects/             # create, list, get, delete
-│   ├── pr-ingestion/         # webhook handler, PR retrieval
-│   ├── memory/               # ingest-history, similarity-search
-│   ├── test-generation/      # generate-tests, submit-feedback
-│   └── analytics/            # get-analytics
-├── shared/                   # db-client, response helpers, middleware
-├─�� db/migrations/            # SQL migrations (users, projects, memory_entries, ...)
-├── step-functions/           # pipeline.asl.json
-└── template.sam.yaml         # SAM / Lambda + API Gateway config
+├── src/                       # Auth/projects/PRs/generated-tests/analytics API
+│   ├── handlers/              # One handler per route (auth, projects, pullRequests, generatedTests, repositories, analytics)
+│   ├── services/               # OAuth, sessions, secrets, project business logic
+│   ├── repositories/           # Parameterized SQL (users, projects)
+│   └── index.js                 # Lambda entrypoint — dispatches via config/routes.js
+├── lambdas/                   # The AI pipeline, orchestrated by Step Functions
+│   ├── webhook-handler/        # Verifies GitHub webhook signature, starts the pipeline
+│   ├── pr-retrieval/            # Fetches PR diff + changed files from GitHub
+│   ├── memory/
+│   │   ├── ingest-history/       # Backfills embeddings from a repo's merged-PR history
+│   │   └── similarity-search/    # Cosine-similarity vector search (C-SPANN index)
+│   └── generation/
+│       └── generate-tests/       # Claude Sonnet 4.6 test generation
+├── shared/                    # db-client, bedrock-client, github-client, secrets-manager
+├── db/migrations/             # SQL migrations (users, projects, pull_requests, test_embeddings, ...)
+├── step-functions/            # test-generation-pipeline.asl.json
+└── template.sam.yaml          # SAM: API Gateway + Lambdas + Step Functions + S3/CloudFront
 
-docs/                         # AUTH_FLOW.md, DATABASE.md, API.md
+docs/                          # architecture.md, AUTH_FLOW.md, DATABASE.md, API.md
+CLAUDE.md                      # Deployment guide + every infra pitfall already hit
 ```
 
 ---
@@ -233,12 +242,14 @@ One teammate review required before merging.
 
 ---
 
-## Open Tasks (Week 4)
+## Live Demo
 
-| Issue | Assignee | Description |
-|---|---|---|
-| [#16](https://github.com/nguyentntram/TestSenseAI/issues/16) | Anh | Wire Bedrock (Claude Sonnet 4.6) into test generation + connect Step Functions to live DB |
-| [#17](https://github.com/nguyentntram/TestSenseAI/issues/17) | Trung | Wire CockroachDB + pgvector for memory storage + Bedrock Titan V2 for embeddings |
+- **App**: https://d236u4nunq3lu6.cloudfront.net
+- **Backend API**: https://gj2k7rk0g3.execute-api.us-west-2.amazonaws.com/dev
+
+Deployed on AWS (API Gateway + Lambda + Step Functions + S3/CloudFront), CockroachDB Cloud (Serverless, `us-west-2`), and Amazon Bedrock. Verified live end-to-end: a real GitHub PR flows through webhook → PR retrieval → similarity search → Claude Sonnet 4.6 generation → real tests written to the database and shown in the UI. See [`CLAUDE.md`](CLAUDE.md) for the deployment process.
+
+Known limitation: sign-in doesn't persist in Incognito/InPrivate browser windows (cross-site cookie restrictions) — use a normal browser window.
 
 ---
 

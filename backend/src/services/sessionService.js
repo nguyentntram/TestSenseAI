@@ -19,6 +19,17 @@ import { env } from '../config/env.js'
 
 const SESSION_PURPOSE = 'app_session'
 
+// Frontend (CloudFront) and backend (API Gateway) live on different domains
+// once deployed, so the session cookie is cross-site from the browser's
+// point of view — SameSite=Lax would be dropped from the fetch() calls
+// useCurrentUser makes (Lax only rides along on top-level navigations).
+// SameSite=None requires Secure, which is exactly when we want it: in local
+// dev (COOKIE_SECURE=false, same-origin via Vite proxy or matching ports),
+// Lax is fine and None would be rejected outright without Secure.
+function cookieSameSite() {
+  return env.cookieSecure() ? 'None' : 'Lax'
+}
+
 export function createSessionCookieHeader(user) {
   const token = createSignedToken(
     { purpose: SESSION_PURPOSE, userId: user.id },
@@ -29,7 +40,7 @@ export function createSessionCookieHeader(user) {
     maxAgeSeconds: env.sessionTtlSeconds(),
     secure: env.cookieSecure(),
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: cookieSameSite(),
   })
 }
 
@@ -38,7 +49,7 @@ export function createLogoutCookieHeader() {
     maxAgeSeconds: 0,
     secure: env.cookieSecure(),
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: cookieSameSite(),
   })
 }
 

@@ -1,6 +1,6 @@
-import { getSecretJson } from '../../shared/secrets-manager.js'
+import { getSecret } from '../../shared/secrets-manager.js'
 import { GitHubClient } from '../../shared/github-client.js'
-import { upsertChangedFiles, updateWebhookStatus, storePrDiff } from '../../shared/db-client.js'
+import { upsertChangedFiles, updateWebhookStatus, storePrDiff, getProjectById, getUserById } from '../../shared/db-client.js'
 
 const MAX_DIFF_BYTES = 500_000  // 500 KB
 const MAX_FILES = 300
@@ -31,9 +31,17 @@ export const handler = async (event) => {
   try {
     const [owner, repo] = repositoryFullName.split('/')
 
-    const { access_token: token } = await getSecretJson(
-      `${process.env.SECRETS_PREFIX}/projects/${projectId}/oauth-token`,
-    )
+    // The GitHub token belongs to the project owner, not the project itself —
+    // stored under users.oauth_secret_reference at sign-in time (see
+    // backend/src/services/secrets/secretsService.js). Reuse that reference
+    // rather than guessing a secret name here; the two must never diverge.
+    const project = await getProjectById(projectId)
+    if (!project) throw new Error(`Project ${projectId} not found`)
+    const user = await getUserById(project.user_id)
+    if (!user?.oauth_secret_reference) {
+      throw new Error(`No GitHub token on file for project ${projectId}'s owner`)
+    }
+    const token = await getSecret(user.oauth_secret_reference)
     const github = new GitHubClient(token)
 
     const [allFiles, diff] = await Promise.all([

@@ -49,11 +49,17 @@
         {
           "Comment": "Retrieval failure is non-fatal — generate tests with no examples",
           "ErrorEquals": ["States.ALL"],
-          "Result": { "results": [] },
-          "ResultPath": "$.similarityResult",
-          "Next": "GenerateTests"
+          "ResultPath": "$.similarityError",
+          "Next": "SimilaritySearchFallback"
         }
       ]
+    },
+    "SimilaritySearchFallback": {
+      "Type": "Pass",
+      "Comment": "Catch blocks can't inject a Result directly — this Pass state supplies the empty-results fallback so GenerateTests still runs.",
+      "Result": { "results": [] },
+      "ResultPath": "$.similarityResult",
+      "Next": "GenerateTests"
     },
     "GenerateTests": {
       "Type": "Task",

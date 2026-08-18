@@ -21,6 +21,8 @@ import {
   deleteProject,
   beginGitHubLogin,
   getPullRequestsByProjectId,
+  getGeneratedTestsByProjectId,
+  getAnalyticsByProjectId,
 } from '../services/api.js'
 import { ApiError } from '../services/ApiError.js'
 import { formatRelativeTime } from '../utils/format.js'
@@ -257,8 +259,28 @@ function PullRequestsTab({ project }) {
 }
 
 function MemoryTab({ project }) {
-  const memoryEntries = project.memoryEntries ?? []
-  if (memoryEntries.length === 0) return (
+  const [memoryEntries, setMemoryEntries] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    getAnalyticsByProjectId(project.id)
+      .then((data) => {
+        if (cancelled) return
+        setMemoryEntries(data?.memoryEntries ?? [])
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setMemoryEntries([])
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [project.id])
+
+  if (loading) return <LoadingState label="Loading memory entries…" />
+
+  if (!memoryEntries.length) return (
     <EmptyState title="No memory entries yet" description="Memory indexing will appear here once historical tests are ingested." />
   )
   return (
@@ -277,7 +299,27 @@ function MemoryTab({ project }) {
 const TEST_STATUS_TONE = { ready: 'success', draft: 'warning' }
 
 function GeneratedTestsTab({ project }) {
-  const generatedTests = project.generatedTests ?? []
+  const [generatedTests, setGeneratedTests] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    getGeneratedTestsByProjectId(project.id)
+      .then((data) => {
+        if (cancelled) return
+        setGeneratedTests(data ?? [])
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setGeneratedTests([])
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [project.id])
+
+  if (loading) return <LoadingState label="Loading generated tests…" />
+
   if (generatedTests.length === 0) return (
     <EmptyState title="No tests generated yet" description="Generated tests will appear here once a PR has been analyzed." />
   )
