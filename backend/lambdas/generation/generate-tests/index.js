@@ -43,14 +43,19 @@ export const handler = async (event) => {
     throw err
   }
 
-  // Strip code fences if Claude wraps the JSON
-  const jsonText = rawOutput.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+  // Claude doesn't always follow "no prose outside the JSON" — extract the
+  // JSON array wherever it actually appears, not just when the response
+  // starts with it. Prefer a fenced ```json block if present, otherwise
+  // fall back to the first [...] span in the text.
+  const fenceMatch = rawOutput.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const arrayMatch = rawOutput.match(/\[[\s\S]*\]/)
+  const jsonText = (fenceMatch?.[1] ?? arrayMatch?.[0] ?? rawOutput).trim()
 
   let tests
   try {
     tests = JSON.parse(jsonText)
   } catch (err) {
-    console.error('Failed to parse Claude output as JSON:', jsonText.slice(0, 500))
+    console.error('Failed to parse Claude output as JSON:', rawOutput.slice(0, 1000))
     await updateWebhookStatus(prId, 'failed')
     throw new Error('Invalid JSON from generation model')
   }

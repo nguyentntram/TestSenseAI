@@ -11,7 +11,7 @@ import Button from '../components/common/Button.jsx'
 import EmptyState from '../components/common/EmptyState.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
 import SimilarExamplesPanel from '../components/prs/SimilarExamplesPanel.jsx'
-import { getProjectById, getPullRequestById } from '../services/api.js'
+import { getProjectById, getPullRequestById, getGeneratedTestsByProjectId } from '../services/api.js'
 import { formatRelativeTime } from '../utils/format.js'
 
 const STATUS_TONE = { open: 'info', merged: 'success', closed: 'neutral', draft: 'neutral' }
@@ -27,17 +27,23 @@ export default function PRDetailPage() {
   const [pageStatus, setPageStatus] = useState('loading')
   const [project, setProject] = useState(null)
   const [pr, setPr] = useState(null)
+  const [generatedTests, setGeneratedTests] = useState([])
   const [activeTab, setActiveTab] = useState('Changed Files')
   usePageTitle(pr ? `${pr.title}` : null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([getProjectById(projectId), getPullRequestById(projectId, prId)]).then(
-      ([proj, pullRequest]) => {
+    Promise.all([
+      getProjectById(projectId),
+      getPullRequestById(projectId, prId),
+      getGeneratedTestsByProjectId(projectId),
+    ]).then(
+      ([proj, pullRequest, tests]) => {
         if (cancelled) return
         if (!proj || !pullRequest) { setPageStatus('not-found'); return }
         setProject(proj)
         setPr(pullRequest)
+        setGeneratedTests(tests ?? [])
         setPageStatus('loaded')
       },
     )
@@ -53,7 +59,7 @@ export default function PRDetailPage() {
     </PageContainer>
   )
 
-  const linkedTests = project.generatedTests.filter((t) => (pr.generatedTestIds ?? []).includes(t.id))
+  const linkedTests = generatedTests.filter((t) => t.linkedPrId === pr.id)
 
   return (
     <PageContainer>

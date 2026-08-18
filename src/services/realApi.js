@@ -91,7 +91,8 @@ export async function deleteProject(projectId) {
 // when VITE_API_MODE=real.
 export async function getPullRequestsByProjectId(projectId) {
   try {
-    return await request(`/projects/${encodeURIComponent(projectId)}/pull-requests`)
+    const data = await request(`/projects/${encodeURIComponent(projectId)}/pull-requests`)
+    return data?.pullRequests ?? []
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return []
     throw err

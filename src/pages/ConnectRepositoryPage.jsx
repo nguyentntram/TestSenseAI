@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Loader2, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Loader2, AlertTriangle, Webhook } from 'lucide-react'
 import PageContainer from '../components/common/PageContainer.jsx'
 import Button from '../components/common/Button.jsx'
 import LoadingState from '../components/common/LoadingState.jsx'
@@ -13,6 +13,11 @@ import { ApiError } from '../services/ApiError.js'
 import { useCurrentUser } from '../hooks/useCurrentUser.js'
 
 const STEPS = ['Authorize GitHub', 'Select repository', 'Configure project', 'Review configuration', 'Success']
+
+// The GitHub App handles webhook delivery for every repo it's installed on —
+// no per-repo webhook setup needed. Installing is a one-time, one-click step
+// per repository (same pattern as installing a GitHub Action or Slack app).
+const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/testsenseai-han-dev-mswxyktb/installations/new'
 
 const INPUT_CLASS = 'mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/40'
 const LABEL_CLASS = 'block text-sm font-medium text-slate-400'
@@ -206,6 +211,21 @@ export default function ConnectRepositoryPage() {
             <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto">
               {createdProject?.name} is connected. TestSense AI will begin building repository memory from {createdProject?.repositoryFullName}.
             </p>
+
+            <div className="mt-6 mx-auto max-w-sm rounded-lg border border-amber-500/20 bg-amber-500/8 p-4 text-left">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-300">
+                <Webhook size={15} aria-hidden="true" />
+                One more step for live PR detection
+              </div>
+              <p className="mt-1.5 text-xs text-slate-400">
+                Install the TestSense AI GitHub App on {createdProject?.repositoryFullName} so new pull requests are picked up automatically — no manual webhook setup required.
+              </p>
+              <a href={GITHUB_APP_INSTALL_URL} target="_blank" rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/8 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-white/12 hover:text-white">
+                Install GitHub App
+              </a>
+            </div>
+
             <div className="mt-6">
               <Button onClick={() => navigate(`/projects/${createdProject.id}`)}>
                 Go to Project Workspace
